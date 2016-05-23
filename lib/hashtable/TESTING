@@ -1,0 +1,16 @@
+In order to test the hashtable.c module, run "make", which will create the
+executable file hashtabletest. The program creates a new empty hashtable and
+inserts various keys into it with corresponding data. The program then attempts
+to find many of these keys in the hashtable later, and prints out their data
+and hash value if found. When run with the number of slots equaling 7, the
+output for hashtabletest is as follows:
+
+5 test
+0 bye
+10 goodbye world
+6 waterman
+6 Waterman
+
+The program works for varying array sizes, not just 7.
+The output for this program correctly corresponds to what we would expect from
+the hashtable functions. 

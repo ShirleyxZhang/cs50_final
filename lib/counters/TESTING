@@ -1,0 +1,18 @@
+In order to test the counters.c module, run "make", which will create the file
+counterstest. The program creates two new counters modules and inserts several
+different integers into one of the counters. It then retrieves some of the
+counter values and prints them. When counterstest is ran, the ouptut is as
+follows:
+
+1
+2
+0
+0
+0
+
+The output correctly corresponds to what we would expect from the counters
+functions.
+
+When we run "valgrind counterstest" after running counterstest itself, valgrind
+shows that there are no memory leaks.
+
