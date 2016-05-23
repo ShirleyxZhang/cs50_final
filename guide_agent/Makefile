@@ -10,7 +10,7 @@ all: guide
 
 
 guide: guide.o
-	gcc $(CFLAGS) -o guide guide.c
+	gcc $(CFLAGS) -o guide guide.c ../common/file.c ../common/file.h
 
 
 clean:

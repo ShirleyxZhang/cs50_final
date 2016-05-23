@@ -17,11 +17,15 @@
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <ctype.h>
-
+#include "../common/file.h"
 
 static int createSocket(const int argc, const char *argv[],
 			struct sockaddr_in *gsp, int logSwitch);
 bool isNumber(const char *arg);
+char *getPlayerName(void);
+char *getGuideID(void);
+/* bool sendFirstMessage(const char *guideID, const char *teamName, */
+/* 		      const char *playerName, const struct sockaddr *gsp); */
 
 
 int main(const int argc, const char *argv[]) {
@@ -46,27 +50,51 @@ int main(const int argc, const char *argv[]) {
   
   printf("%s ", teamName);
 
-  
 
+  const char *playerName = getPlayerName();
+  printf("player name is %s\n", playerName);
+
+  const char *guideID = getGuideID();
+  printf("guideId is %s\n", guideID);
+  
+  
   // following code based on Kotz's chatclient.c
   
   struct sockaddr_in gs;
+  const struct sockaddr *gsp = (struct sockaddr *) &gs;
   
   int comm_sock = createSocket(argc, argv, &gs, logSwitch);
 
-  /***** send message to GS to announce presence *****/
-  // char *message = malloc(sizeof())
-  // message = sprintf("GA_STATUS|0|%s|%s|%s|1", guideId, teamName, playerName");
-  
-  // if (sendto(comm_sock, message, strlen(message), 0, &gs, sizeof(gs)) < 0)
-  //     print error message, exit
 
-  // free(message);
+  /* if (!sendFirstMessage(guideID, teamName, playerName, gsp)) { */
+  /*   exit(3); */
+  /* } */
   
-  printf("socket set up\n");
+  /***** send message to GS to announce presence *****/
+  char *message = malloc(strlen("GA_STATUS") + strlen(guideID)
+  			 + strlen(teamName) + strlen(playerName)+ 8);
+
+  if (message == NULL) {
+    printf("Error allocating memory for first message\n");
+    exit(3);
+  }
+  sprintf(message, "GA_STATUS|0|%s|%s|%s|1", guideID, teamName, playerName);
+
+  printf("initial message is: %s\n", message);
+  
+  if (sendto(comm_sock, message, strlen(message), 0, gsp, sizeof(gs)) < 0) {
+    printf("Error sending startup message\n");
+    exit(4);
+  }
+
+  free(message);
+  
 
 
   while (true) {
+
+    /* // signals whether or not the program has launched the graphical interface */
+    /* int interfaceUp = 0; */
 
     fd_set rfds;
     struct timeval timeout;
@@ -184,8 +212,6 @@ static int createSocket(const int argc, const char *argv[],
 
 
 
-
-
 bool isNumber(const char *arg)
 {
   for (int i = 0; i < strlen(arg); i++) {
@@ -197,80 +223,84 @@ bool isNumber(const char *arg)
 
 
 
+/* Repeatedly prompts guide agent for their playerName until they enter
+ * a valid player name, and assigns them this name for the rest of the game
+ */
+char *getPlayerName(void)
+{
+
+  int goodName = 0;
+  char *playerName;
+  
+  while (goodName == 0) {
+    printf("What is your name?: ");
+
+    playerName = readline(stdin);
+
+    for (int i = 0; i < strlen(playerName); i++) {
+      if (!isprint(playerName[i])) {
+	goodName = 0;
+	break;
+      }
+    }
+    goodName = 1;
+  }
+
+  return playerName;
+}
 
 
 
-/* // represents whether or not the -log=raw switch was used */
-/* int logSwitch = 0; */
+/* Repeatedly prompts user for 8-character hexadecimal ID until they 
+ * enter a valid one. Returns their first valid entry.
+ */
+char *getGuideID(void)
+{
+  int goodID = 0;
+  char *guideID;
 
-/* // if the first argument is -log=raw, change logSwitch to reflect that */
-/* if (strcmp(argv[1], "-log=raw") == 0) { */
-/*   logSwitch = 1; */
-/* } */
+  while (goodID == 0) {
+    printf("What is the guide's ID?: ");
+    guideID = readline(stdin);
 
-/* // Check to make sure the user entered the right number or arguments */
-/* // if the log switch was called, there should be 5 arguments */
-/* if (logSwitch == 1 && argc != 5) { */
-/*   printf("Incorrect number of arguments.\n"); */
-/*   exit(1); */
-/* } */
-/* // if the log switch was not called, there should be 4 arguments */
-/* else if (logSwitch == 0 && argc != 4) { */
-/*   printf("Incorrect number of arguments.\n"); */
-/*   exit(1); */
-/* } */
-
-/* // assign the team name input by the user to a variable */
-/* // position of this team name on the command line varies depending */
-/* // on whether or not the -log=raw switch was used */
-/* char *teamName = malloc(strlen(argv[1]) + 1); */
-/* if (teamName == NULL) { */
-/*   printf("Error allocating memory for team name\n"); */
-/*   exit(2); */
-/* } */
-/* else if (logSwitch == 0) */
-/*   sscanf(argv[1], "%s", teamName); */
-/* else */
-/*   sscanf(argv[2], "%s", teamName); */
+    if (strlen(guideID) != 8)
+      printf("guide ID must be 8 hexadecimal characters\n");
+    else {
+      for (int i = 0; i < strlen(guideID); i++) {
+	if (ishexdigit(guideID[i]) == 0) {
+	  goodID = 0;
+	  break;
+	}
+      }
+    
+      goodID = 1;
+    }
+  }
+  return guideID;
+}
 
 
-/* // store IP address input by user in a variable */
-/* // position for this argument varies as well depending on switch */
-/* char* GShost = malloc(strlen(argv[2]) + 1); */
-/* if (GShost == NULL) { */
-/*   printf("Error allocating memory\n"); */
-/*   exit(2); */
-/* } */
-/* else if (logSwitch == 0) */
-/*   sscanf(argv[2], "%s", GShost); */
-/* else */
-/*   sscanf(argv[3], "%s", GShost); */
+/* bool sendFirstMessage(const char *guideID, const char *teamName, */
+/* 		      const char *playerName, const struct sockaddr *gsp) */
+/* { */
+/*   char *message = malloc(strlen("GA_STATUS") + strlen(guideID) */
+/* 			 + strlen(teamName) + strlen(playerName)+ 8); */
 
+/*   if (message == NULL) { */
+/*     printf("Error allocating memory for first message\n"); */
+/*     return false; */
+/*   } */
+/*   sprintf(message, "GA_STATUS|0|%s|%s|%s|1", guideID, teamName, playerName); */
 
-/* // store port number input by user in a variable */
-/* // position for this argument varies as well depending on switch   */
-/* int GSport; */
+/*   printf("initial message is: %s\n", message); */
 
-/* if (logSwitch == 0) { */
-/*   if (isNumber(argv[3])) */
-/*    sscanf(argv[3], "%d", &GSport); */
-/*   else { */
-/*     printf("Port number can only consist of integers.\n"); */
-/*     exit(1); */
+/*   if (sendto(comm_sock, message, strlen(message), 0, gsp, sizeof(gs)) < 0) { */
+/*     printf("Error sending startup message\n"); */
+/*     return false; */
 /*   } */
 
-/* } */
-/* else { */
-/*   if (isNumber(argv[4])) */
-/*     sscanf(argv[4], "%d", &GSport); */
-/*   else { */
-/*     printf("Port number can only consist of integers.\n"); */
-/*     exit(1); */
-/*   } */
+/*   free(message); */
+/*   return true; */
+
 /* } */
 
-/* printf("%s %s %d\n", teamName, GShost, GSport); */
-
-// assign the team name input by the user to a variable
-// position of this team name on the command line varies depending
-// on whether or not the -log=raw switch was used      
