@@ -18,6 +18,7 @@
 #include <sys/select.h>
 #include <ctype.h>
 #include "../common/file.h"
+#include <gtk/gtk.h>
 
 static int createSocket(const int argc, const char *argv[],
 			struct sockaddr_in *gsp, int logSwitch);
@@ -26,6 +27,38 @@ char *getPlayerName(void);
 char *getGuideID(void);
 /* bool sendFirstMessage(const char *guideID, const char *teamName, */
 /* 		      const char *playerName, const struct sockaddr *gsp); */
+static void handleSocket(int comm_sock, struct sockaddr_in *gsp);
+//static void writeLogGame(FILE *fp, char *update);
+
+
+static int BUFSIZE = 8000;
+
+
+static void activate (GtkApplication *app, gpointer user_data) {
+  GtkWidget *window;
+  /* GtkWidget *button; */
+  /* GtkWidget *button_box; */
+
+  window = gtk_application_window_new (app);
+  gtk_window_set_title (GTK_WINDOW (window), "Window");
+  gtk_window_set_default_size (GTK_WINDOW (window), 200, 200);
+
+  /* button_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL); */
+  /* gtk_container_add (GTK_CONTAINER (window), button_box); */
+
+  //  button = gtk_button_new_with_label ("Hello World");
+  /* g_signal_connect (button, "clicked", G_CALLBACK (print_hello), NULL); */
+  /* g_signal_connect_swapped (button, "clicked", G_CALLBACK (gtk_widget_destroy), window); */
+  /* gtk_container_add (GTK_CONTAINER (button_box), button); */
+
+  gtk_widget_show_all (window);
+}
+
+
+
+
+
+
 
 
 int main(const int argc, const char *argv[]) {
@@ -47,16 +80,21 @@ int main(const int argc, const char *argv[]) {
     teamName = argv[1];
   else
     teamName = argv[2];
-  
-  printf("%s ", teamName);
 
 
   const char *playerName = getPlayerName();
-  printf("player name is %s\n", playerName);
-
+  //  printf("player name is %s\n", playerName);
+  if (strcmp(playerName, "EOF") == 0) {
+    printf("\n");
+    exit(0);
+  }
+      
   const char *guideID = getGuideID();
-  printf("guideId is %s\n", guideID);
-  
+  //  printf("guideId is %s\n", guideID);
+  if (strcmp(guideID, "EOF") == 0) {
+    printf("\n");
+    exit(0);
+  }
   
   // following code based on Kotz's chatclient.c
   
@@ -65,10 +103,6 @@ int main(const int argc, const char *argv[]) {
   
   int comm_sock = createSocket(argc, argv, &gs, logSwitch);
 
-
-  /* if (!sendFirstMessage(guideID, teamName, playerName, gsp)) { */
-  /*   exit(3); */
-  /* } */
   
   /***** send message to GS to announce presence *****/
   char *message = malloc(strlen("GA_STATUS") + strlen(guideID)
@@ -89,7 +123,35 @@ int main(const int argc, const char *argv[]) {
 
   free(message);
   
+  FILE *logp;
+  if ((logp = fopen("../log/guideagent.log", "w")) == NULL) {
+    printf("could not open log file");
+  }
+  else if (logSwitch == 0) {
+    printf("heyyyy\n");
+    fprintf(logp, "Guide Agent %s joined the game with ID %s\n", playerName,
+	    guideID);
+  }
+  else {
+    //    write
+    ;
+  }
+  //  fclose(logp);
 
+
+
+  GtkApplication *app;
+  int status;
+
+  app = gtk_application_new ("org.gtk.example", G_APPLICATION_FLAGS_NONE);
+  g_signal_connect (app, "activate", G_CALLBACK (activate), NULL);
+  status = g_application_run (G_APPLICATION (app), argc, argv);
+  g_object_unref (app);
+
+  
+  printf("status is %d\n", status);
+  // return status;
+  
 
   while (true) {
 
@@ -125,13 +187,15 @@ int main(const int argc, const char *argv[]) {
 
       if (FD_ISSET(comm_sock, &rfds)) {
 	// handle socket
+	handleSocket(comm_sock, &gs);
       }
     }
   }
 
   close(comm_sock);
   putchar('\n');
-  return 0;
+  fclose(logp);
+  exit(0);
 
 }
 
@@ -237,6 +301,9 @@ char *getPlayerName(void)
 
     playerName = readline(stdin);
 
+    if (playerName == NULL)
+      return "EOF";
+
     for (int i = 0; i < strlen(playerName); i++) {
       if (!isprint(playerName[i])) {
 	goodName = 0;
@@ -245,6 +312,7 @@ char *getPlayerName(void)
     }
     goodName = 1;
   }
+  
 
   return playerName;
 }
@@ -261,13 +329,17 @@ char *getGuideID(void)
 
   while (goodID == 0) {
     printf("What is the guide's ID?: ");
-    guideID = readline(stdin);
 
+    guideID = readline(stdin);
+    
+    if (guideID == NULL)
+      return "EOF";
+    
     if (strlen(guideID) != 8)
       printf("guide ID must be 8 hexadecimal characters\n");
     else {
       for (int i = 0; i < strlen(guideID); i++) {
-	if (ishexdigit(guideID[i]) == 0) {
+	if (isxdigit(guideID[i]) == 0) {
 	  goodID = 0;
 	  break;
 	}
@@ -304,3 +376,46 @@ char *getGuideID(void)
 
 /* } */
 
+
+
+static void
+handleSocket(int comm_sock, struct sockaddr_in *gsp)
+{
+  printf("handling socket\n");
+  
+  struct sockaddr_in sender;
+  struct sockaddr *senderp = (struct sockaddr *) &sender;
+  socklen_t senderlen = sizeof(sender);
+  char buf[BUFSIZE];
+  int nbytes = recvfrom(comm_sock, buf, BUFSIZE-1, 0, senderp, &senderlen);
+
+  if (nbytes < 0) {
+    perror("receiving from socket");
+    // exit?
+  }
+  else {
+    buf[nbytes] = '\0';     // null terminate string
+
+    if (sender.sin_family != AF_INET)
+      printf("From non-Internet address: Family %d\n", sender.sin_family);
+    else {
+      // was it from the expected server?
+      if (sender.sin_addr.s_addr == gsp->sin_addr.s_addr &&
+	  sender.sin_port == gsp->sin_port) {
+
+	// do stuff
+	printf("%s\n", buf);
+	
+      }
+      else {
+	// don't do stuff?
+      }
+    }
+  }
+}
+
+
+/* static void writeLogGame(FILE *fp, char *update) */
+/* { */
+  
+/* } */
