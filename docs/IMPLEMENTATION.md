@@ -2,7 +2,8 @@
 Team: Lapis
 Shirley Zhang, Deven Orie, Drew Waterman
 
-###Game Server
+**Game Server**
+
 1. Program parses command line arguments using parse_arguments function. Checks for wrong number of arguments, unreadable codedrop filepath and invalid port number.
 
 2. Uses load_codedrops function to read from the codedrop file and create a codedrop struct for each. In each code drop there is also a pointer to location struct which stores the float values of longitude and latitude of the codedrop. Each struct is stored in a list of codedrops. List is a module written in lab 3 with key as a string and data as void* , which in this case is the codedrop struct. Also create a count of unneutralized codedrops.
@@ -33,7 +34,8 @@ Shirley Zhang, Deven Orie, Drew Waterman
  10. End game and clean up memory appropriately and close socket when all codedrops have been neutralized, send the ending message to all the players by looping through playerlist and GA list.
 
 
-###Field Agent
+**Field Agent**
+
 1) Check the validity/active state of the game server & game agent
 
 2) Checks that the data structure implementations are not null/exist
