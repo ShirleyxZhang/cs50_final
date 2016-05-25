@@ -4,11 +4,11 @@ Shirley Zhang, Deven Orie, Drew Waterman
 
 ***** Game Server *****
 
-1. Program parses command line arguments using parse_arguments function.
+1) Program parses command line arguments using parse_arguments function.
    Checks for wrong number of arguments, unreadable codedrop filepath and
    invalid port number.
 
-2. Uses load_codedrops function to read from the codedrop file and create a
+2) Uses load_codedrops function to read from the codedrop file and create a
    codedrop struct for each. In each code drop there is also a pointer to
    location struct which stores the float values of longitude and latitude of
    the codedrop. Each struct is stored in a list of codedrops. List is a
@@ -16,21 +16,21 @@ Shirley Zhang, Deven Orie, Drew Waterman
    this case is the codedrop struct. Also create a count of unneutralized
    codedrops.
 
-3. Initialize playerlist(list that contains pebbleid as key, and FA struct as
+3) Initialize playerlist(list that contains pebbleid as key, and FA struct as
    data), guidelist(list that contains guideid as key and GA struct as data),
    teamlist(list that contains teamName as key and team struct as data),
    hashtable for keeping track of maybe-capture agents(key is hexcode, data is
    pointer to maybe-capture FA struct).
 
-4. Sets up sockets using createSocket function. A while loop will continue to
+4) Sets up sockets using createSocket function. A while loop will continue to
    run until the game ends and it will listen for datagrams.
 
-5. For each message, process it by breaking it down into the parts separated
+5) For each message, process it by breaking it down into the parts separated
    by pipes using function process_message.
 
-6. Validate opcode, see whether message is from GA or FA.
+6) Validate opcode, see whether message is from GA or FA.
 
-7. If message if from FA, validate gameId, pebbleId, teamName, and playerName,
+7) If message if from FA, validate gameId, pebbleId, teamName, and playerName,
    and then check what the opcode is , process appropriately using switches.
 
   - FA_ LOCATION: If FA is new to the game, use create_player function to
@@ -62,7 +62,7 @@ Shirley Zhang, Deven Orie, Drew Waterman
       are captured, team is inactive. Send message to the capturing FA and
       captured FA using sendto.
 
-8. If message is from GA, validate the gameId, guideId, teamName, and
+8) If message is from GA, validate the gameId, guideId, teamName, and
    playerName, and then check what the opcode, process appropriately using
    switches.
  - GA_ STATUS: If GA doesn’t exist, create a new GA and add to existing team
@@ -74,13 +74,13 @@ Shirley Zhang, Deven Orie, Drew Waterman
  - GA_HINT: Lookup the pebbleid in playerlist and send the message to that FA
    using sendto and the stored address of the FA in the FA struct.
 
-9. Send out updates every 45 seconds. Send update to each FA by going to team
+9) Send out updates every 45 seconds. Send update to each FA by going to team
    list and looping through the FA list in each team struct and update info.
    Send this updated info, along with codedrop info to each FA in that team.
    Repeat for all teams. After, send information about the whole game to each
    GA by going through guidelist.
 
-10. End game and clean up memory appropriately and close socket when all
+10) End game and clean up memory appropriately and close socket when all
     codedrops have been neutralized, send the ending message to all the players
     by looping through playerlist and GA list.
 
