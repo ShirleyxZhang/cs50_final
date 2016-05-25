@@ -20,36 +20,44 @@
 #include "../common/file.h"
 #include <gtk/gtk.h>
 
-static int createSocket(const int argc, const char *argv[],
+static int createSocket(int argc, char *argv[],
 			struct sockaddr_in *gsp, int logSwitch);
 bool isNumber(const char *arg);
 char *getPlayerName(void);
 char *getGuideID(void);
-/* bool sendFirstMessage(const char *guideID, const char *teamName, */
-/* 		      const char *playerName, const struct sockaddr *gsp); */
-static void handleSocket(int comm_sock, struct sockaddr_in *gsp);
-//static void writeLogGame(FILE *fp, char *update);
-
+static void handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list);
+char *handleStdin(int comm_sock, struct sockaddr_in *gsp);
+//char * getPebbleID(char *hint, list_t *FAList);
+  
 
 static int BUFSIZE = 8000;
 
 
+static void
+print_hello (GtkWidget *widget,
+	     gpointer   data)
+{
+  g_print ("Hello World\n");
+}
+
+
 static void activate (GtkApplication *app, gpointer user_data) {
   GtkWidget *window;
-  /* GtkWidget *button; */
-  /* GtkWidget *button_box; */
+  GtkWidget *button;
+  GtkWidget *button_box;
 
   window = gtk_application_window_new (app);
   gtk_window_set_title (GTK_WINDOW (window), "Window");
   gtk_window_set_default_size (GTK_WINDOW (window), 200, 200);
 
-  /* button_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL); */
-  /* gtk_container_add (GTK_CONTAINER (window), button_box); */
 
-  //  button = gtk_button_new_with_label ("Hello World");
-  /* g_signal_connect (button, "clicked", G_CALLBACK (print_hello), NULL); */
-  /* g_signal_connect_swapped (button, "clicked", G_CALLBACK (gtk_widget_destroy), window); */
-  /* gtk_container_add (GTK_CONTAINER (button_box), button); */
+  button_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
+  gtk_container_add (GTK_CONTAINER (window), button_box);
+
+  button = gtk_button_new_with_label ("Hello World");
+  g_signal_connect (button, "clicked", G_CALLBACK (print_hello), NULL);
+  g_signal_connect_swapped (button, "clicked", G_CALLBACK (gtk_widget_destroy), window);
+  gtk_container_add (GTK_CONTAINER (button_box), button);
 
   gtk_widget_show_all (window);
 }
@@ -57,11 +65,7 @@ static void activate (GtkApplication *app, gpointer user_data) {
 
 
 
-
-
-
-
-int main(const int argc, const char *argv[]) {
+int main(int argc, char *argv[]) {
 
   // represents whether or not the -log=raw switch was used
   int logSwitch = 0;
@@ -128,7 +132,6 @@ int main(const int argc, const char *argv[]) {
     printf("could not open log file");
   }
   else if (logSwitch == 0) {
-    printf("heyyyy\n");
     fprintf(logp, "Guide Agent %s joined the game with ID %s\n", playerName,
 	    guideID);
   }
@@ -139,13 +142,21 @@ int main(const int argc, const char *argv[]) {
   //  fclose(logp);
 
 
-
+  printf("before all this shit\n");
+  
   GtkApplication *app;
   int status;
 
-  app = gtk_application_new ("org.gtk.example", G_APPLICATION_FLAGS_NONE);
+  printf("application_new\n");
+  app = gtk_application_new ("guide.agent", G_APPLICATION_FLAGS_NONE);
+
+  printf("g_signal_connect\n");
   g_signal_connect (app, "activate", G_CALLBACK (activate), NULL);
+
+  printf("g_application_run\n");
   status = g_application_run (G_APPLICATION (app), argc, argv);
+
+  printf("g_object_unref\n");
   g_object_unref (app);
 
   
@@ -153,6 +164,19 @@ int main(const int argc, const char *argv[]) {
   // return status;
   
 
+
+  /* initialize struct for field agents on team so we have access to pebbleID's
+   * potentially a list of pebbleID's
+   */
+  list_t FAList = list_new(NULL);
+  
+
+  /*
+   * put pebbleID's somewhere in interface so GA has access to them and knows where
+   * to send them
+   */
+
+  
   while (true) {
 
     /* // signals whether or not the program has launched the graphical interface */
@@ -181,13 +205,23 @@ int main(const int argc, const char *argv[]) {
     }
     else if (select_response > 0) {
       if (FD_ISSET(0, &rfds)) {
-	// handle stdin
-	;
+	char *hint = handleStdin(comm_sock, &gs);
+	// if hint is NULL, do nothing
+	// else
+	// scan hint to get pebbleID
+	// char *pebbleID = getPebbleID(hint, FAList);
+	//    scans hint for pebbleID, tells user it's invalid if there is no FA with that pebble ID
+	// if the returned ID is null, don't send the message
+	// otherwise, send the message
+	
+	if (strcmp(hint, "EOF") == 0)
+	  break;
+	/* char * message = malloc(strlen(hint) + 14 + strlen(gameID) + strlen(guideID) + strlen(teamName) + strlen(playerName) + strlen(pebbleID); */
       }
 
       if (FD_ISSET(comm_sock, &rfds)) {
 	// handle socket
-	handleSocket(comm_sock, &gs);
+	handleSocket(comm_sock, &gs, FAList);
       }
     }
   }
@@ -204,7 +238,7 @@ int main(const int argc, const char *argv[]) {
 
 /* Parse arguments and set up socket
  */
-static int createSocket(const int argc, const char *argv[],
+static int createSocket(int argc, char *argv[],
 			struct sockaddr_in *gsp, int logSwitch)
 {
 
@@ -379,9 +413,21 @@ char *getGuideID(void)
 
 
 static void
-handleSocket(int comm_sock, struct sockaddr_in *gsp)
+handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list)
 {
-  printf("handling socket\n");
+
+  // GAME_STATUS|gameId|fa1:fa2:...:faN|cd1:cd2:...:cdM
+  // do something with gameID??
+
+  // use strtok
+  //    fa field (update interface to represent location/status of FA's):
+  //    update list of fa's so we know who on the game is on our team and available
+  //    to receive hints
+  //       use strtok again, separated by colons
+  //          use strtok again, separated by commas
+  //    cd field (update interface to represent location/status of cd's):
+  //       use strtok again, separated by colons
+  //          use strtok again, separated by commas  
   
   struct sockaddr_in sender;
   struct sockaddr *senderp = (struct sockaddr *) &sender;
@@ -415,7 +461,47 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp)
 }
 
 
-/* static void writeLogGame(FILE *fp, char *update) */
-/* { */
+
+
+char *
+handleStdin(int comm_sock, struct sockaddr_in *gsp)
+{
+  char *hint = readline(stdin);
+  if (hint == NULL)
+    return "EOF";
+
+  //  char *message = malloc(strlen(hint) + 
+
+  if (gsp->sin_family != AF_INET) {
+    printf("I am confused: server is not AF_INET.\n");
+    fflush(stdout);
+    return "0";
+  }
+
+  if (strlen(hint) > 140) {
+    printf("Hint must be 140 characters or less!");
+    return NULL;
+  }
+
+  else if (sendto(comm_sock, hint, strlen(hint), 0, (struct sockaddr *) gsp, sizeof(*gsp)) < 0){
+    perror("error sending datagram\n");
+    exit(5);
+  }
+  //  free(hint);
   
+  return hint;
+  
+}
+
+
+
+
+/* char * getPebbleID(char *hint, list_t *FAList) */
+/* { */
+/*   char *ID; */
+/*   sscanf(hint, "%s ", ID); */
+
+/*   // check to see if pebbleID is in our known list of FA's */
+/*   // if not, prompt user for different hint and return NULL */
+
 /* } */
