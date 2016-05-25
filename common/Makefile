@@ -3,8 +3,7 @@
 # Divya Kalidindi and Drew Waterman, April 2016
 
 LIB = common.a
-OBJS = web.o word.o file.o index.o
-LIBS = -lcurl
+OBJS = web.o word.o file.o
 
 CFLAGS = -Wall -pedantic -std=c11 -ggdb
 CC = gcc
@@ -18,7 +17,6 @@ $(LIB): $(OBJS)
 web.o: web.c web.h
 word.o: word.c word.h
 file.o: file.c file.h
-index.o: index.c index.h ../lib/counters/counters.h ../lib/counters/counters.c
 
 # clean up
 clean:
