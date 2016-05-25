@@ -1,78 +1,122 @@
 #include <pebble.h>
+#include <mission.h>
 
-// Local includes
+Window *window;
+MenuLayer *menu_layer;
+TextLayer *s_text_layer;
 
+//Array of player names
+char *players[]={"Deven","Drew","Shirley","David","Sam"};
 
-static Window *s_main_window;
-static TextLayer *s_time_layer;
-
-static void update_time() {
-  // Get a tm structure
-  time_t temp = time(NULL); 
-  struct tm *tick_time = localtime(&temp);
-
-  // Write the current hours and minutes into a buffer
-  static char s_buffer[8];
-  strftime(s_buffer, sizeof(s_buffer), clock_is_24h_style() ?
-                                          "%H:%M" : "%I:%M", tick_time);
-
-  // Display this time on the TextLayer
-  text_layer_set_text(s_time_layer, s_buffer);
+char *chosenplayer="";
+// This is the menu item draw callback where you specify what each item should look like
+void draw_row_callback (GContext *ctx, Layer *cell_layer, MenuIndex *cell_index, void *callback_context) {
+    // Which row is it?
+    switch (cell_index->row) {
+    case 0:
+        menu_cell_basic_draw(ctx, cell_layer, players[0], NULL, NULL);
+        break;
+    case 1:
+        menu_cell_basic_draw(ctx, cell_layer, players[1], NULL, NULL);
+        break;
+    case 2:
+        menu_cell_basic_draw(ctx, cell_layer, players[2], NULL, NULL);
+        break;
+    case 3:
+        menu_cell_basic_draw(ctx, cell_layer, players[3], NULL, NULL);
+        break;
+    case 4:
+        menu_cell_basic_draw(ctx, cell_layer, players[4], NULL, NULL);
+        break;
+    }
 }
 
-static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  update_time();
+// Each section has a number of items;  we use a callback to specify this
+// You can also dynamically add and remove items using this
+uint16_t num_rows_callback (MenuLayer *menu_layer, uint16_t section_index, void *callback_context) {
+  return 5;
 }
 
-static void main_window_load(Window *window) {
-  // Get information about the Window
+//Select Button 
+void select_click_callback (MenuLayer *menu_layer, MenuIndex *cell_index, void *callback_context) {
+  int which = cell_index->row;
+  chosenplayer=players[which];
+  //Log(players[which]);
+ //Log("hello");
+  // uint32_t segments[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  // for (int i = 0; i <= which; ++i) {
+  //   segments[2*i] = 200;
+  //   segments[(2*i)+1] = 100;
+  // }//for loop
+  // VibePattern pattern = {
+  //   .durations = segments,
+  //   .num_segments = 16
+  // };
+  // vibes_enqueue_custom_pattern(pattern);
+}
+
+
+// This initializes the menu upon window load
+void window_load (Window *window){
+
+  //origin of the (x,y,width,height)
+  menu_layer = menu_layer_create(GRect(0, 30, 144, 152));
+
+  // Bind the menu layer's click config provider to the window for interactivity
+  menu_layer_set_click_config_onto_window(menu_layer, window);
+
+
+
+  // Create a text layer and set the text
+  s_text_layer = text_layer_create(GRect(0, 0, 144, 30));
+  text_layer_set_text(s_text_layer, "Pick A Player!");
+  
+  // Set the font and text alignment
+  text_layer_set_font(s_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(s_text_layer, GTextAlignmentCenter);
+
+
+  //These are all of the callbacks
+  MenuLayerCallbacks callbacks = {
+    .draw_row = (MenuLayerDrawRowCallback) draw_row_callback,
+    .get_num_rows = (MenuLayerGetNumberOfRowsInSectionsCallback) num_rows_callback,
+    .select_click = (MenuLayerSelectCallback) select_click_callback
+  };
+
+  // Set all the callbacks for the menu layer
+  menu_layer_set_callbacks(menu_layer, NULL, callbacks);
+
+  // Add it to the window for display
+  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_text_layer));
+  layer_add_child(window_get_root_layer(window), menu_layer_get_layer(menu_layer));
+}
+
+//Unloads the window
+void window_unload (Window *window) {
+  //Destroy the layers
+  text_layer_destroy(s_text_layer);
+  menu_layer_destroy(menu_layer);
+}
+
+
+void init() {
+  window = window_create();
+
   Layer *window_layer = window_get_root_layer(window);
-  GRect bounds = layer_get_bounds(window_layer);
 
-  // Create the TextLayer with specific bounds
-  s_time_layer = text_layer_create(
-      GRect(0, PBL_IF_ROUND_ELSE(58, 52), bounds.size.w, 50));
 
-  // Improve the layout to be more like a watchface
-  text_layer_set_background_color(s_time_layer, GColorClear);
-  text_layer_set_text_color(s_time_layer, GColorBlack);
-  text_layer_set_text(s_time_layer, "00:00");
-  text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
-  text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
-
-  // Add it as a child layer to the Window's root layer
-  layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
-}
-
-static void main_window_unload(Window *window) {
-  // Destroy TextLayer
-  text_layer_destroy(s_time_layer);
+  // Setup the window handlers
+  WindowHandlers handlers = {
+    .load = window_load,
+    .unload = window_unload
+  };
+  window_set_window_handlers (window, (WindowHandlers) handlers);
+  window_stack_push (window, true);
 }
 
 
-static void init() {
-  // Create main Window element and assign to pointer
-  s_main_window = window_create();
-
-  // Set handlers to manage the elements inside the Window
-  window_set_window_handlers(s_main_window, (WindowHandlers) {
-    .load = main_window_load,
-    .unload = main_window_unload
-  });
-
-  // Show the Window on the watch, with animated=true
-  window_stack_push(s_main_window, true);
-
-  // Make sure the time is displayed from the start
-  update_time();
-
-  // Register with TickTimerService
-  tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
-}
-
-static void deinit() {
-  // Destroy Window
-  window_destroy(s_main_window);
+void deinit() {
+  window_destroy(window);
 }
 
 int main(void) {
