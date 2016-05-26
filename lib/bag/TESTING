@@ -1,0 +1,11 @@
+In order to test the bag.c module, run "make" which will create
+the file bagtest. The program creates a new bag and inserts and removes
+several different strings, printing out the strings to the user as it
+removes them. When bagtest is ran, the output is as follows:
+hello again
+goodbye
+hello
+
+The output correctly corresponds to what we would expect from the
+bag's functions. 
+
