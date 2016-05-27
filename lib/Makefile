@@ -2,7 +2,7 @@
 #
 # Shirley Zhang, May 2016
 
-OBJS = hashtable/hashtable.o hashtable/jhash.o list/list.o counters/counters.o
+OBJS = hashtable/hashtable.o hashtable/jhash.o list/list.o counters/counters.o bag/bag.o
 CFLAGS = -Wall -pedantic -std=c11 -ggdb
 CC = gcc
 MAKE = make
@@ -23,6 +23,9 @@ hashtable/hashtable.o: hashtable/hashtable.c hashtable/hashtable.h
 counters/counters.o: counters/counters.c counters/counters.h
 	cd counters; $(MAKE) counters.o
 
+bag/bag.o: bag/bag.c bag/bag.h
+	cd bag; $(MAKE) bag.o
+
 # add cleanup commands for other subdirectories
 clean:
 	rm -f *~
@@ -30,4 +33,6 @@ clean:
 	rm -f $(LIB)
 	cd hashtable; $(MAKE) clean
 	cd list; $(MAKE) clean
+	cd bag; $(MAKE) clean
+	cd counters; $(MAKE) clean
 
