@@ -26,7 +26,7 @@ typedef struct listnode {
 
 
 /**************** global types ****************/
-typedef struct list list_t;
+//typedef struct list list_t;
 
 
 /**************** global functions ****************/

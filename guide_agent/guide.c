@@ -20,7 +20,9 @@
 #include "../common/file.h"
 #include "../lib/list/list.h"
 #include "../lib/bag/bag.h"
-
+#include "../lib/counters/counters.h"
+#include <cairo.h>
+#include <gtk/gtk.h>
 
 typedef struct codedrop {
   bool status;
@@ -30,10 +32,7 @@ typedef struct codedrop {
 } codedrop_t;
 
 
-/* typedef struct location { */
-/*   float latitude; */
-/*   float longitude; */
-/* } location_t; */
+// update button
 
 
 typedef struct FA {
@@ -42,7 +41,6 @@ typedef struct FA {
   bool capture;
   char* pebbleid;
   char* name;
-  //  struct location *location;
   float latitude;
   float longitude;
   float capture_start;       // place to hold the start time of capturing for an FA
@@ -55,16 +53,26 @@ typedef struct FA {
 static int createSocket(int argc, char *argv[],
 			struct sockaddr_in *gsp, int logSwitch);
 bool isNumber(const char *arg);
-char *getPlayerName(void);
 char *getGuideID(void);
-static void handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list, char **gameID, FILE *fp);
-char *handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list);
-//char * getPebbleID(char *hint, list_t *FAList);
-void printPebbleIDs(void *arg, char *key, void *data);  
+static int handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list, char **gameID, FILE *fp);
+char *handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list, char *teamName);
+void printPebbleIDs(void *arg, char *key, void *data);
+void getNumAgents(void *arg, char *key, void *data);
+void deletefunc(void *data);
+void printGameOver(char *gameID, FILE *fp);
+void initialize_window(GtkWidget* window);
 
+
+
+
+
+//cairo_image_surface_create_from_png()
+//cairo_set_source_surface()
+
+
+int HEIGHT=811;
+int WIDTH=1012;
 static int BUFSIZE = 8000;
-
-
 
 
 int main(int argc, char *argv[]) {
@@ -77,26 +85,36 @@ int main(int argc, char *argv[]) {
     logSwitch = 1;
   }
 
+  // Check to make sure the user entered the right number or arguments
+  // if the log switch was called, there should be 5 arguments
+  if (logSwitch == 1 && argc != 6) {
+    printf("Incorrect number of arguments.\n");
+    exit(1);
+  }
+  // if the log switch was not called, there should be 4 arguments
+  else if (logSwitch == 0 && argc != 5) {
+    printf("Incorrect number of arguments.\n");
+    exit(1);
+  }
+  
 
   // assign the team name input by the user to a variable
   // position of this team name on the command line varies depending
   // on whether or not the -log=raw switch was used    
-  const char *teamName;
+  char *teamName;
   if (logSwitch == 0)
     teamName = argv[1];
   else
     teamName = argv[2];
 
+  const char *playerName;
+  if (logSwitch == 0)
+    playerName = argv[2];
+  else
+    playerName = argv[3];
 
-  const char *playerName = getPlayerName();
-  //  printf("player name is %s\n", playerName);
-  if (strcmp(playerName, "EOF") == 0) {
-    printf("\n");
-    exit(0);
-  }
-      
+  
   const char *guideID = getGuideID();
-  //  printf("guideId is %s\n", guideID);
   if (strcmp(guideID, "EOF") == 0) {
     printf("\n");
     exit(0);
@@ -120,7 +138,7 @@ int main(int argc, char *argv[]) {
   }
   sprintf(message, "GA_STATUS|0|%s|%s|%s|1", guideID, teamName, playerName);
 
-  printf("initial message is: %s\n", message);
+  printf("Sent first message to the game server to join the game.\n");
   
   if (sendto(comm_sock, message, strlen(message), 0, gsp, sizeof(gs)) < 0) {
     printf("Error sending startup message\n");
@@ -155,18 +173,64 @@ int main(int argc, char *argv[]) {
 
   char *gameID = NULL;
   
+  list_t *FAList = list_new(deletefunc);
+
+
+
+
+
+  gtk_init(&argc, &argv);
+
+
+  GtkWidget *window;
+  window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+
+  //  GtkWidget *darea;
+  /* darea = gtk_drawing_area_new(); */
+  /* gtk_container_add(GTK_CONTAINER(window), darea); */
+
+  /* g_signal_connect(G_OBJECT(darea), "draw",G_CALLBACK(on_draw_event), NULL); */
+  /* g_signal_connect(window, "destroy",G_CALLBACK(gtk_main_quit), NULL); */
+
+  /* GIOChannel *server = g_io_channel_unix_new (comm_sock); */
+  /* GIOChannel *standard = g_io_channel_unix_new (0); */
+
+  /* g_signal_connect(server, "nfdsa", G_CALLBACK(handleSocket), NULL); */
+  /* g_signal_connect(standard, "poop", G_CALLBACK(handleStdin), NULL); */
+  
+  initialize_window(window);
+
+
+
+
+  /* fd_set rfds; */
+  /* /\* struct timeval timeout; *\/ */
+  /* /\* const struct timeval fifteensec = {15,0}; *\/ */
+
+  /* FD_ZERO(&rfds); */
+
+  /* FD_SET(0, &rfds); // stdin */
+  /* FD_SET(comm_sock, &rfds); */
+
+  /* int nfds = comm_sock + 1; */
+
+  /* timeout = fifteensec; */
+  /* select(nfds, &rfds, NULL, NULL, &timeout); */
+  
+  
+  //  gtk_main();
+
+
+  
+  
   
   while (true) {
-
+ 
     /* initialize struct for field agents on team so we have access to pebbleID's        
      * potentially a list of pebbleID's                                     
      */
-    list_t *FAList = list_new(NULL); 
 
     
-    /* // signals whether or not the program has launched the graphical interface */
-    /* int interfaceUp = 0; */
-
     fd_set rfds;
     struct timeval timeout;
     const struct timeval fifteensec = {15,0};
@@ -190,59 +254,59 @@ int main(int argc, char *argv[]) {
     }
     else if (select_response > 0) {
       if (FD_ISSET(0, &rfds)) {
-	// if hint is NULL, do nothing
-	// else
-	// scan hint to get pebbleID
-	// char *pebbleID = getPebbleID(hint, FAList);
-	//    scans hint for pebbleID, tells user it's invalid if there is no FA with that pebble ID
-	// if the returned ID is null, don't send the message
-	// otherwise, send the message
 
-	char *idAndHint = handleStdin(comm_sock, &gs, FAList);
-	
-	if (strcmp(idAndHint, "EOF") == 0)
-	  break;
+	char *idAndHint = handleStdin(comm_sock, &gs, FAList, teamName);
 
-	printf("gameID is %s\n", gameID);
-	if ((gameID != NULL)) {
+	if (strcmp(idAndHint, "NULL") != 0) {
+	  if (strcmp(idAndHint, "EOF") == 0)
+	    break;
 
-	  char *sendHint = malloc(13 + strlen(gameID) + strlen(guideID) + strlen(teamName) + strlen(playerName) + strlen(idAndHint));
+	  if ((gameID != NULL)) {
+
+	    char *sendHint = malloc(13 + strlen(gameID) + strlen(guideID) + strlen(teamName) + strlen(playerName) + strlen(idAndHint));
 
 	
-	  /* make sure not null */
-	  if (sendHint == NULL) {
-	    printf("Error allocating memory for message.\n");
-	    exit(5);
+	    /* make sure not null */
+	    if (sendHint == NULL) {
+	      printf("Error allocating memory for message.\n");
+	      exit(5);
+	    }
+
+	
+	    sprintf(sendHint, "GA_HINT|%s|%s|%s|%s|%s", gameID, guideID, teamName, playerName, idAndHint);
+
+	    if (sendto(comm_sock, sendHint, strlen(sendHint), 0, (struct sockaddr *) gsp, sizeof(*gsp)) < 0\
+		){
+	      perror("error sending datagram\n");
+	      exit(5);
+	    }
+	    else {
+	      printf("Your hint was sent to the game server.\n");
+	    }		
 	  }
-
-	
-	  sprintf(sendHint, "GA_HINT|%s|%s|%s|%s|%s", gameID, guideID, teamName, playerName, idAndHint);
-
-	  if (sendto(comm_sock, sendHint, strlen(sendHint), 0, (struct sockaddr *) gsp, sizeof(*gsp)) < 0\
-	      ){
-	    perror("error sending datagram\n");
-	    exit(5);
+	  else if (strcmp(idAndHint, "NULL") == 0) {
+	    printf("hint didn't work.\n");
 	  }
 	  else {
-	    printf("Your hint was sent to the game server.\n");
-	  }		
+	    printf("You can't send hints until you've joined the game!\n");
+	    fflush(stdout);
+	  } 
 	}
-	else if (strcmp(idAndHint, "NULL") == 0) {
-	  printf("hint didn't work.\n");
-	}
-	else {
-	  printf("You can't send hints until you've joined the game!\n");
-	  fflush(stdout);
-	} 
       }
+	  
 
       if (FD_ISSET(comm_sock, &rfds)) {
 	// handle socket
-	handleSocket(comm_sock, &gs, FAList, &gameID, logp);
+	if (handleSocket(comm_sock, &gs, FAList, &gameID, logp) == 0) {
+	  break;
+	}
+
+	printf("Enter a hint to send to a field agent.\n");
+	fflush(stdout);
       }
     }
 
-    list_delete(FAList);
+    //    list_delete(FAList);
   }
 
   close(comm_sock);
@@ -264,27 +328,14 @@ int main(int argc, char *argv[]) {
 static int createSocket(int argc, char *argv[],
 			struct sockaddr_in *gsp, int logSwitch)
 {
-
-  // Check to make sure the user entered the right number or arguments
-  // if the log switch was called, there should be 5 arguments
-  if (logSwitch == 1 && argc != 5) {
-    printf("Incorrect number of arguments.\n");
-    exit(1);
-  }
-  // if the log switch was not called, there should be 4 arguments
-  else if (logSwitch == 0 && argc != 4) {
-    printf("Incorrect number of arguments.\n");
-    exit(1);
-  }
-
   // store IP address input by user in a variable
   // position for this argument varies as well depending on switch
   const char* GShost;
 
   if (logSwitch == 0)
-    GShost = argv[2];
-  else
     GShost = argv[3];
+  else
+    GShost = argv[4];
 
 
   // store port number input by user in a variable
@@ -292,8 +343,8 @@ static int createSocket(int argc, char *argv[],
   int GSport;
 
   if (logSwitch == 0) {
-    if (isNumber(argv[3]))
-      GSport = atoi(argv[3]);
+    if (isNumber(argv[4]))
+      GSport = atoi(argv[4]);
     else {
       printf("Port number can only consist of integers.\n");
       exit(1);
@@ -301,8 +352,8 @@ static int createSocket(int argc, char *argv[],
 
   }
   else {
-    if (isNumber(argv[4]))
-      GSport = atoi(argv[4]);
+    if (isNumber(argv[5]))
+      GSport = atoi(argv[5]);
     else {
       printf("Port number can only consist of integers.\n");
       exit(1);
@@ -342,39 +393,6 @@ bool isNumber(const char *arg)
   return true;
 }
 
-
-
-/********************* getPlayerName  ************************/
-
-/* Repeatedly prompts guide agent for their playerName until they enter
- * a valid player name, and assigns them this name for the rest of the game
- */
-char *getPlayerName(void)
-{
-
-  int goodName = 0;
-  char *playerName;
-  
-  while (goodName == 0) {
-    printf("What is your name?: ");
-
-    playerName = readline(stdin);
-
-    if (playerName == NULL)
-      return "EOF";
-
-    for (int i = 0; i < strlen(playerName); i++) {
-      if (!isprint(playerName[i])) {
-	goodName = 0;
-	break;
-      }
-    }
-    goodName = 1;
-  }
-  
-
-  return playerName;
-}
 
 
 
@@ -419,24 +437,9 @@ char *getGuideID(void)
 /********************** handleSocket *********************/
 
 
-static void
+static int
 handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list, char **gameID, FILE *fp)
-{
-
-  // GAME_STATUS|gameId|fa1:fa2:...:faN|cd1:cd2:...:cdM
-  // do something with gameID??
-
-  // use strtok
-  //    fa field (update interface to represent location/status of FA's):
-  //    update list of fa's so we know who on the game is on our team and available
-  //    to receive hints
-  //       use strtok again, separated by colons
-  //          use strtok again, separated by commas
-  //    cd field (update interface to represent location/status of cd's):
-  //       use strtok again, separated by colons
-  //          use strtok again, separated by commas
-
-  
+{ 
   struct sockaddr_in sender;
   struct sockaddr *senderp = (struct sockaddr *) &sender;
   socklen_t senderlen = sizeof(sender);
@@ -456,11 +459,13 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list, char **gameID
       // was it from the expected server?
       if (sender.sin_addr.s_addr == gsp->sin_addr.s_addr &&
 	  sender.sin_port == gsp->sin_port) {
+
+	fprintf(fp, "Received the following message from the game server: %s\n", buf);
 	
 	char *OPCODE = strtok(buf, "|");
-	char *ID = strtok(NULL, "|");
-	char *AllAgents = strtok(NULL, "|");
-	char *AllCodedrops = strtok(NULL, "|");
+	/* char *ID = strtok(NULL, "|"); */
+	/* char *AllAgents = strtok(NULL, "|"); */
+	/* char *AllCodedrops = strtok(NULL, "|"); */
 	
 	if (OPCODE == NULL) {
 	  // do nothing?
@@ -469,15 +474,18 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list, char **gameID
 	// if OPCODE is GAME_STATUS
 	else if (strcmp(OPCODE, "GAME_STATUS") == 0) {
 
-	  //	  char *ID = strtok(NULL, "|");
-	  // might have to keep strtok'ing here
+	  char *ID = strtok(NULL, "|");
+	  char *AllAgents = strtok(NULL, "|");
+	  char *AllCodedrops = strtok(NULL, "|");
 	  
 	  if (*gameID == NULL) {
 	    *gameID = ID;
 	    fprintf(fp, "Guide agent received first message from game server. The ID of this game is %s\n", *gameID);
-	    printf("Joined the game! gameID is %s\n", *gameID);
+	    printf("Joined the game!\n");
 	    fflush(stdout);
 	  }
+	  printf("%s:\n", OPCODE);
+	  fflush(stdout);
 	  
 	  if (strcmp(ID, *gameID) != 0) {
 	  // if gameID doesn't match,
@@ -485,101 +493,111 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list, char **gameID
 	  }
 	  else {
 	    // go through the remaining fields
-	    //	    char *AllAgents = strtok(NULL, "|");
+	    printf("Game ID is %s\n", ID);
+	    fflush(stdout);
 	    
-	    if (AllAgents == NULL)
+	    if (AllAgents == NULL) {
 	      fprintf(fp, "There was something wrong with the FA field in the message from the game server.\n");
 	    // or is the list just empty??
-	    
+	    }
 	    else {
 
       	      bag_t *agentBag = bag_new();
 	      char *agent = strtok(AllAgents, ":");
-
-	      printf("agent is: %s\n", agent);
 	      
       	      if (agent == NULL) {
 		// list is empty?
 		fprintf(fp, "There are currently no active agents.\n");
 	      }
 	      else {
-		//		int whichAgent = 0;
 		// go through each agent
+		printf("Agents:\n");
 
 		bag_insert(agentBag, agent);
 
 		while ((agent = strtok(NULL, ":")) != NULL) {
-		  printf("agent is %s\n", agent);
 		  bag_insert(agentBag, agent);
 		}
 
-		//		agent = strtok(AllAgents, ":")
+		list_delete(list);
+		list = list_new(deletefunc);
 		
 		while ((agent = bag_extract(agentBag)) != NULL) {
 		  FA_t *FA = malloc(sizeof(struct FA));
 
-		  char *pebbleID = strtok(agent, ",");
+		  char *pebbleID = strtok(agent, ", ");
 		  FA->pebbleid = pebbleID;
 		  
-		  char *teamName = strtok(NULL, ",");
+		  char *teamName = strtok(NULL, ", ");
 		  FA->teamname = teamName;
 		  
-		  char *playerName = strtok(NULL, ",");
+		  char *playerName = strtok(NULL, ", ");
 		  FA->name = playerName;
 		  
-		  char *playerStatus = strtok(NULL, ",");
+		  char *playerStatus = strtok(NULL, ", ");
 		  if (strcmp(playerStatus, "captured") == 0)
 		    FA->capture = true;
 		  else
 		    FA->capture = false;
 		      
-		  char *lastKnownLat = strtok(NULL, ",");
+		  char *lastKnownLat = strtok(NULL, ", ");
 		  FA->latitude = (float) *lastKnownLat;
 		  
-		  char *lastKnownLong = strtok(NULL, ",");
+		  char *lastKnownLong = strtok(NULL, ", ");
 		  FA->longitude = (float) *lastKnownLong;
 		  
-		  char *secondsSinceLastContact = strtok(NULL, ",");
+		  char *secondsSinceLastContact = strtok(NULL, ", ");
 		  FA->contact = (float) *secondsSinceLastContact;
-		  
-		  printf("%s %s %s %s %s %s %s", pebbleID, teamName, playerName, playerStatus, lastKnownLat, lastKnownLong, secondsSinceLastContact);
-		  
+		  		  
 		  list_insert(list, FA->pebbleid, FA);
+
+		  printf("   Agent %s from team %s: pebble ID is %s.\n", playerName, teamName, pebbleID);
+		  if (FA->capture == true)
+		    printf("     %s has been captured and is no longer active.\n", playerName);
+		  else
+		    printf("     %s has not been captured and is still active.\n", playerName);
+
+		  printf("     Last known latitude: %s. Last known longitude is :%s\n", lastKnownLat, lastKnownLong);
+		  printf("     Seconds since last contact is %s.\n", secondsSinceLastContact);
+
+		  fflush(stdout);
 		}
 
 		if (AllCodedrops == NULL)
 		  fprintf(fp, "There was something wrong with the FA field in the message from the game server.\n");
 		else {
+		  printf("Code drops:\n");
+
 		  bag_t *codedropBag = bag_new();
 
 		  char *codedrop = strtok(AllCodedrops, ":");
-		  printf("code drop is %s\n", codedrop);
 
 		  if (codedrop == NULL) {
 		    // list is empty?
-		    fprintf(fp, "There are currently no active agents.\n");
+		    fprintf(fp, "There are currently no codedrops\n");
 		  }
 		  else {
-		    //              int whichAgent = 0;
-		    // go through each agent
-
 		    bag_insert(codedropBag, codedrop);
 
 		    while ((codedrop = strtok(NULL, ":")) != NULL) {
-		      //    printf("code drop is %s\n", codedrop);
 		      bag_insert(codedropBag, codedrop);
 		    }
 
 		    while ((codedrop = bag_extract(codedropBag)) != NULL) {
-		      char *codeID = strtok(codedrop, ",");
-		      char* lat = strtok(NULL, ",");
-		      char* Long = strtok(NULL, ",");
-		      char *neutralizingTeam = strtok(NULL, ",");
-		      printf("%s %s %s %s\n", codeID, lat, Long, neutralizingTeam);
-		    }  
-		    
-		  }
-		
+		      char *codeID = strtok(codedrop, ", ");
+		      char* lat = strtok(NULL, ", ");
+		      char* Long = strtok(NULL, ", ");
+		      char *neutralizingTeam = strtok(NULL, ", ");
+
+		      printf("   Code drop %s: latitude is %s, longitude is %s. ", codeID, lat, Long);
+		      fflush(stdout);
+		      if (strcmp(neutralizingTeam, "NONE") == 0)
+			printf("Has not yet been neutralized.\n");
+		      else
+			printf("Neutralized by %s.\n", neutralizingTeam);
+		      fflush(stdout);
+		    }  		    
+		  }		
 		}
 	      }
 	    }
@@ -587,15 +605,27 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list, char **gameID
 	}	 
 	// else if OPCODE is GAME_OVER
 	else if (strcmp(OPCODE, "GAME_OVER") == 0) {
-	  // go through everything
-
+	  char *ID = strtok(NULL, "|");
 	  printf("game over\n");
-
-
+	  printf("%s\n", *gameID);
+	  fflush(stdout);
+	  
+	  // go through everything
+	  if (gameID == NULL) {
+	    fprintf(fp,"Guide agent received game over message before joining a game. Message was therefore ignored.\n");
+	    //ignore; we haven't even goined a game yet
+	  }
+	  else if (strcmp(ID, *gameID) != 0) {
+	    printf("ID is %s\n", ID);
+	    printf("gameID is %s\n", *gameID);
+	    // if gameID doesn't match,
+	    fprintf(fp, "Guide agent received a message from a different game and ignored it. The ID of this game was %s\n", ID);
+	  }
+	  else {
+	    printGameOver(ID, fp);
+	    return 0;
+	  }
 	}
-
-	// else ignore?
-	
       }
       else {
 	// don't do stuff?
@@ -603,6 +633,7 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list, char **gameID
       }
     }
   }
+  return 1;
 }
 
 
@@ -613,19 +644,15 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list, char **gameID
 /************************** handleStdin ***************************/
 
 char *
-handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list)
+handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list, char *teamName)
 {
   char *hint = readline(stdin);
-
-  //printf("hint length is %d\n", lineLength);
   
   if (hint == NULL) {
     return "EOF";
   }
 
   int lineLength = (int) strlen(hint);
-  //  printf("hint length is %d\n", lineLength);
-
   
   if (lineLength > 140) {
     printf("Hint must be 140 characters or less!");
@@ -633,65 +660,130 @@ handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list)
     return hint;
   }
 
-  //  char *message = malloc(strlen(hint) + 
   if (gsp->sin_family != AF_INET) {
     printf("I am confused: server is not AF_INET.\n");
     fflush(stdout);
     return "0";
   }
-
-
-  // getNumAgents
-
-
-  printf("Send hint to which field agent? Your active agents are:\n");
+  
+  list_t *numAgents = list_new(NULL);
+  list_iterate(list, getNumAgents, numAgents);
+  int *num = list_find(numAgents, teamName);
   fflush(stdout);
-  list_iterate(list, printPebbleIDs, NULL);
 
+  if (num == NULL) {
+    printf("You have no active agents to send hints to!\n");
+    free(hint);
+    fflush(stdout);
+    return "NULL";
+  }
+  
+  printf("Send hint to which field agent? Your active agents have the following ID's:\n");
+  fflush(stdout);
+  list_iterate(list, printPebbleIDs, teamName);
+  printf("\n");
+  fflush(stdout);
+  
   char *pebble = readline(stdin);
+  if (pebble == NULL)
+    return "EOF";
 
-  /* char *message = malloc(15 + strlen(gameID) + strlen(guideID) + strlen(teamName) + strlen(playerName) + strlen(pebble) + strlen(hint)); */
-
-  fflush(stdout);
   char* idAndHint = malloc(strlen(pebble) + strlen(hint) + 2);
   sprintf(idAndHint, "%s|%s", pebble, hint);
   
-  /* if (sendto(comm_sock, hint, strlen(hint), 0, (struct sockaddr *) gsp, sizeof(*gsp)) < 0){ */
-  /*   perror("error sending datagram\n"); */
-  /*   exit(5); */
-  /* } */
-  /* else { */
-  /*   printf("Your hint was sent to the game server.\n"); */
-
-  /* } */
   fflush(stdout);
   free(pebble);
   free(hint);
   
-  return idAndHint;
-  
+  return idAndHint;  
 }
+
+
+
+void printGameOver(char *gameID, FILE *fp) {
+  char *numRemainingCodeDrops = strtok(NULL, "|");
+  char *teamRecords = strtok(NULL, "|");
+
+  bag_t *recordBag = bag_new();
+  char *record = strtok(teamRecords, ":");
+
+  printf("GAME OVER! Here are the records for this game:\n");
+  printf("Number of remaining unneutralized code drops is %s\n", numRemainingCodeDrops);
+  
+  while (record != NULL) {
+    char *teamName = strtok(record, ", ");
+    char *numPlayers = strtok(record, ", ");
+    char *numCaptures = strtok(record, ", ");
+    char *numCaptured = strtok(record, ", ");
+    char *numNeutralized = strtok(record, ", ");
+
+    printf("Team %s:\n", teamName);
+    printf("   Total number of active players: %s\n", numPlayers);
+    printf("   Captured %s players from other teams.\n", numCaptures);
+    printf("   %s players on this team were captured.\n", numCaptured);
+    printf("   Neutralized %s code drops.\n", numNeutralized);
+
+    record = strtok(teamRecords, ":");
+  }
+  free(recordBag);
+  printf("Good game, everybody!");
+  fflush(stdout);
+}
+
 
 
 
 
 void printPebbleIDs(void *arg, char *key, void *data)
 {
-
   FA_t *myAgent = data;
-
-  if (myAgent->capture == false)
-    printf("%s ", key); 
-
+  char* teamName = arg;
+  
+  if (myAgent->capture == false && strcmp(myAgent->teamname, teamName) == 0) {
+    printf("%s ", key);
+    fflush(stdout);
+  }
 }
 
 
-/* char * getPebbleID(char *hint, list_t *FAList) */
-/* { */
-/*   char *ID; */
-/*   sscanf(hint, "%s ", ID); */
 
-/*   // check to see if pebbleID is in our known list of FA's */
-/*   // if not, prompt user for different hint and return NULL */
 
-/* } */
+void getNumAgents(void *arg, char *key, void *data)
+{
+  list_t *numAgents = arg;
+  
+  FA_t *currentAgent = data;
+  
+  if (currentAgent->capture == false) {
+    int *nump = list_find(numAgents, currentAgent->teamname);
+    if (nump == NULL) {
+      int num = 1;
+      list_insert(numAgents, currentAgent->teamname, &num);
+    }
+    else {
+      int num = *nump;
+
+      if (num == 0) {
+	num++;
+	list_insert(numAgents, currentAgent->teamname, &num);
+      }
+    }
+  }
+}
+
+
+
+void deletefunc(void *data)
+{
+  if (data)
+    free(data);
+}
+
+
+
+void initialize_window(GtkWidget* window){
+  gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER_ON_PARENT);
+  gtk_window_set_default_size(GTK_WINDOW(window), WIDTH, HEIGHT);
+  gtk_window_set_title(GTK_WINDOW(window), "GTK window");
+  gtk_widget_show_all(window);
+}
