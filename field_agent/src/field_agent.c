@@ -760,7 +760,7 @@ void deinit() {
 }
 
 
-//Main Method Runs the application 
+//Main Method Runs the applic ation 
 int main(void) {
   init();
   app_event_loop();
