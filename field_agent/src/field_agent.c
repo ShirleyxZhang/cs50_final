@@ -2,12 +2,17 @@
 #include <mission.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>   
+#include <stdbool.h>  
+#include <string.h>
+
+  
+
 
 //Deven Orie-CS50-Field Agent
 //pebble clean
 //pebble build
 //pebble install --serial /dev/cu.PebbleTime5B57-SerialPo
+//pebble logs --serial /dev/cu.PebbleTime5B57-SerialPo
 
 typedef enum {
   AppKeyTemperature = 0,  // Key: 0
@@ -22,16 +27,18 @@ DictionaryIterator *out_iter;
 
 
 //Windows for each screen of the app
-Window *window, *window2, *neutralize_window, *capture_window;
+Window *window, *choose_team_window, *window2, *neutralize_window, *capture_window;
 
 //Allows for menu built on top of scroll view
 MenuLayer *player_menu, *option_menu;
-MenuLayer *neutralize_keyboard, *capture_keyboard;
+MenuLayer *neutralize_keyboard, *capture_keyboard, *team_name_keyboard;
 
 //Theses are the text layers added to the navigation & capture windows
 TextLayer *navigation_header, *navigation_input;
 TextLayer *capture_header, *capture_input;
-TextLayer *neutralize_code_text, *capture_code_text;
+TextLayer *neutralize_code_text, *player_input;
+TextLayer *team_header, *team_input;
+TextLayer *capture_code_text;
 
 
 //Array of player names
@@ -53,22 +60,114 @@ char *chosenplayer="";
 //Allows for concatination with the symbol chose and add it to buf
 char *chosen_symbol="";
 char *chosen_symbol_two="";
+char *chosen_symbol_three="";
+char *chosen_symbol_four="";
 
 //The chose symbols are added to these character arrays 
-char buf[10];
-char buf_two[10];
+char neutralization_code[10];
+char capture_code[10];
+char playerName[20];
+char teamName[20];
 
 //Prevents a code from being more than 4 characters
 int incrementer=0;
 int incrementer_two=0;
+int player_letter_incrementer=0;
+int team_letter_incrementer=0;
 
 //Allows for string compare to occur once 
 bool match=false;
 bool match_two=false;
 
+int pebbleId=0;
+int gameId=0;
+
+        
+int lat=10;
+int lon=10;
+//request update = 1
+//norequest = 0
+int statusReq=0;
+
+
 // Largest expected inbox and outbox message sizes
 const uint32_t inbox_size = 64;
 const uint32_t outbox_size = 256;
+
+
+//*********************OP Codes****************************************//
+//FA_LOCATION|gameId|pebbleId|teamName|playerName|lat|long|statusReq
+void location_op(){
+  //8k buffer
+  char message[8191];
+  char convert[8191];
+
+  strcat(message, "FA_LOCATION|");
+  snprintf(convert,8191,"%d",gameId);
+  strcat(message,convert);
+  strcat(message,"|");
+  snprintf(convert,8191,"%d",pebbleId);
+  strcat(message,convert);
+  strcat(message,"|");
+  strcat(message,teamName);
+  strcat(message,"|");
+  strcat(message,playerName);
+  strcat(message,"|");
+  snprintf(convert,8191,"%d",lat);
+  strcat(message,convert);
+  strcat(message,"|");
+  snprintf(convert,8191, "%d", lon);
+  strcat(message,convert);
+  strcat(message,"|");
+  snprintf(convert, 8191, "%d", statusReq);
+  strcat(message,convert);
+}
+
+//FA_NEUTRALIZE|gameId|pebbleId|teamName|playerName|lat|long|codeId
+void neutralize_op(){
+  //8k buffer
+  char message[8191];
+  char convert[8191];
+
+  strcat(message, "FA_NEUTRALIZE|");
+  snprintf(convert,8191,"%d",gameId);
+  strcat(message,convert);
+  strcat(message,"|");
+  snprintf(convert,8191,"%d",pebbleId);
+  strcat(message,convert);
+  strcat(message,"|");
+  strcat(message,teamName);
+  strcat(message,"|");
+  strcat(message,playerName);
+  strcat(message,"|");
+  snprintf(convert,8191,"%d",lat);
+  strcat(message,convert);
+  strcat(message,"|");
+  snprintf(convert,8191, "%d", lon);
+  strcat(message,convert);
+  strcat(message,"|");
+  strcat(message,neutralization_code);
+}
+
+//FA_CAPTURE|gameId|pebbleId|teamName|playerName|captureId
+void capture_op(){
+  //8k buffer
+  char message[8191];
+  char convert[8191];
+
+  strcat(message, "FA_NEUTRALIZE|");
+  snprintf(convert,8191,"%d",gameId);
+  strcat(message,convert);
+  strcat(message,"|");
+  snprintf(convert,8191,"%d",pebbleId);
+  strcat(message,convert);
+  strcat(message,"|");
+  strcat(message,teamName);
+  strcat(message,"|");
+  strcat(message,playerName);
+  strcat(message,"|");
+  strcat(message,capture_code);
+} 
 
 // Register to be notified about inbox received events
 //app_message_register_inbox_received(inbox_received_callback);
@@ -123,42 +222,33 @@ static void inbox_received_callback(DictionaryIterator *iter, void *context) {
 
 
 //{The Player Menu}-Menu One
-// This is the menu item draw callback where you specify what each item should look like
-void draw_row_callback (GContext *ctx, Layer *cell_layer, MenuIndex *cell_index, void *callback_context) {
-
-    switch (cell_index->row) {
-    case 0:
-        menu_cell_basic_draw(ctx, cell_layer, players[0], "Team: Lapis", NULL);
-        break;
-    case 1:
-        menu_cell_basic_draw(ctx, cell_layer, players[1], "Team: Drone", NULL);
-        break;
-    case 2:
-        menu_cell_basic_draw(ctx, cell_layer, players[2], "Team: Fish", NULL);
-        break;
-    case 3:
-        menu_cell_basic_draw(ctx, cell_layer, players[3], NULL, NULL);
-        break;
-    case 4:
-        menu_cell_basic_draw(ctx, cell_layer, players[4], NULL, NULL);
-        break;
-
-    }
-}
-//The Player Menu}-Menu One
-// Each section has a number of items;  we use a callback to specify this
-uint16_t num_rows_callback (MenuLayer *player_menu, uint16_t section_index, void *callback_context) {
-  return 5;
-}
-
-//{The Player Menu}-Menu One
 //Select Button for the Player Menu
 void select_click_callback (MenuLayer *player_menu, MenuIndex *cell_index, void *callback_context) {
   int which = cell_index->row;
-  chosenplayer=players[which];
-  //window_stack_remove(window_stack_get_top_window());
-  //vibes_enqueue_custom_pattern(pattern);
-  window_stack_push(window2,true);
+
+  if (which!=0){
+    //if the code is not greater than for characters 
+    if (player_letter_incrementer!=16&&which>10){
+      //symbol that is chosen from the keyboard
+      chosen_symbol_three=symbols[which];
+      //concatinate the buffer with the chose symbol to create a code (string)
+      strcat(playerName, chosen_symbol_three);  
+      //add the concatinated string to the navigation output showing what character have already been entered
+      text_layer_set_text(player_input, playerName);
+      //Sleep for 1/2 second 
+      psleep(100);
+      //Increment 
+      player_letter_incrementer++;
+    }
+  }
+    //Once we have 4 characters
+    if (player_letter_incrementer>0&&which==0){
+          //window_stack_pop(window_get_root_layer(window2));
+          psleep(100);
+          window_stack_push(choose_team_window,true);
+          //window_stack_pop(window_get_root_layer(window2));
+
+    }
 
 }
 
@@ -280,9 +370,9 @@ void select_click_callback_three (MenuLayer *neutralize_keyboard, MenuIndex *cel
       //symbol that is chosen from the keyboard
       chosen_symbol=symbols[which];
       //concatinate the buffer with the chose symbol to create a code (string)
-      strcat(buf, chosen_symbol);  
+      strcat(neutralization_code, chosen_symbol);  
       //add the concatinated string to the navigation output showing what character have already been entered
-      text_layer_set_text(navigation_input, buf);
+      text_layer_set_text(navigation_input, neutralization_code);
       //Sleep for 1/2 second 
       psleep(100);
       //Increment 
@@ -294,7 +384,7 @@ void select_click_callback_three (MenuLayer *neutralize_keyboard, MenuIndex *cel
       //Iterate though the array of hex_codes
       for (int i=0; i<index; i++){
         //Comapre the strings 
-        if (strcmp(buf,hex_test[i]) == 0){
+        if (strcmp(neutralization_code,hex_test[i]) == 0){
           //Set to true if there is a match
           match=true;
         }
@@ -310,9 +400,9 @@ void select_click_callback_three (MenuLayer *neutralize_keyboard, MenuIndex *cel
       } 
       //Resets all of the booleans, integers, and buffers
       match=false;    
-      memset(buf, 0, 10);
+      memset(neutralization_code, 0, 10);
       incrementer=0;
-      text_layer_set_text(navigation_input, buf);
+      text_layer_set_text(navigation_input, neutralization_code);
     }//main if
 
     //If submitting before the code is at four characters
@@ -334,9 +424,9 @@ void select_click_callback_four (MenuLayer *capture_keyboard, MenuIndex *cell_in
       //symbol that is chosen from the keyboard
       chosen_symbol_two=symbols[which];
       //concatinate the buffer with the chose symbol to create a code (string)
-      strcat(buf_two, chosen_symbol_two);  
+      strcat(capture_code, chosen_symbol_two);  
       //add the concatinated string to the navigation output showing what character have already been entered
-      text_layer_set_text(capture_input, buf_two);
+      text_layer_set_text(capture_input, capture_code);
       //Sleep for 1/2 second 
       psleep(100);
       //increment
@@ -348,7 +438,7 @@ void select_click_callback_four (MenuLayer *capture_keyboard, MenuIndex *cell_in
     //Iterate though the array of player_codes
     for (int i=0; i<index; i++){
       //Comapre the strings 
-      if (strcmp(buf_two,player_id[i]) == 0){
+      if (strcmp(capture_code,player_id[i]) == 0){
         //Set to true if there is a match
         match_two=true;
       }
@@ -364,9 +454,9 @@ void select_click_callback_four (MenuLayer *capture_keyboard, MenuIndex *cell_in
     } 
     //Resets all of the booleans, integers, and buffers
     match_two=false;    
-    memset(buf_two, 0, 10);
+    memset(capture_code, 0, 10);
     incrementer_two=0;
-    text_layer_set_text(capture_input, buf_two);
+    text_layer_set_text(capture_input, capture_code);
   }//main if
 
   //If submitting before the code is at four characters
@@ -375,27 +465,72 @@ void select_click_callback_four (MenuLayer *capture_keyboard, MenuIndex *cell_in
   // }
 }
 
+
+
+void select_click_callback_five (MenuLayer *player_menu, MenuIndex *cell_index, void *callback_context) {
+  int which = cell_index->row;
+
+  if (which!=0){
+    //if the code is not greater than for characters 
+    if (team_letter_incrementer!=16&&which>10){
+      //symbol that is chosen from the keyboard
+      chosen_symbol_four=symbols[which];
+      //concatinate the buffer with the chose symbol to create a code (string)
+      strcat(teamName, chosen_symbol_four);  
+      //add the concatinated string to the navigation output showing what character have already been entered
+      text_layer_set_text(team_input, teamName);
+      //Sleep for 1/2 second 
+      psleep(100);
+      //Increment 
+      team_letter_incrementer++;
+    }
+  }
+    //Once we have 4 characters
+    if (team_letter_incrementer>0&&which==0){
+          //window_stack_pop(window_get_root_layer(window2));
+          psleep(100);
+          window_stack_push(window2,true);
+          //window_stack_pop(window_get_root_layer(window2));
+    }
+
+}
 // This initializes the menu upon window load
 void window_load (Window *window){
 
   //origin of the (x,y,width,height)
   //creates all of the menu layers
-  player_menu = menu_layer_create(GRect(0, 30, 144, 152));
+  player_menu = menu_layer_create(GRect(0, 80, 144, 90));
   option_menu = menu_layer_create(GRect(0, 30, 144, 152));
   neutralize_keyboard = menu_layer_create(GRect(0, 80, 144, 90));
   capture_keyboard = menu_layer_create(GRect(0, 80, 144, 90));
+  team_name_keyboard= menu_layer_create(GRect(0, 80, 144, 90));
 
   // Bind the menu layer's click config provider to the window for interactivity
   menu_layer_set_click_config_onto_window(player_menu, window);
   menu_layer_set_click_config_onto_window(option_menu, window2);
   menu_layer_set_click_config_onto_window(neutralize_keyboard, neutralize_window);
   menu_layer_set_click_config_onto_window(capture_keyboard, capture_window);
-
+  menu_layer_set_click_config_onto_window(team_name_keyboard, choose_team_window);
 
 
   // Create a text layer and set the text
+  team_header = text_layer_create(GRect(0, 0, 144, 30));
+  text_layer_set_text(team_header, "Input Team Name");
+  // Set the font and text alignment
+  text_layer_set_font(team_header, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+  text_layer_set_text_alignment(team_header, GTextAlignmentCenter);
+
+  // Create a text layer and set the text
+  team_input = text_layer_create(GRect(0, 30, 144, 50));
+  text_layer_set_text(team_input, "");
+  // Set the font and text alignment
+  text_layer_set_text_color(team_input, GColorGreen);
+  text_layer_set_font(team_input, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+  text_layer_set_text_alignment(team_input, GTextAlignmentCenter);
+
+  // Create a text layer and set the text
   neutralize_code_text = text_layer_create(GRect(0, 0, 144, 30));
-  text_layer_set_text(neutralize_code_text, "Pick A Player!"); 
+  text_layer_set_text(neutralize_code_text, "Input Player Name!"); 
   // Set the font and text alignment
   text_layer_set_font(neutralize_code_text, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(neutralize_code_text, GTextAlignmentCenter);
@@ -408,7 +543,7 @@ void window_load (Window *window){
   text_layer_set_font(capture_code_text, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(capture_code_text, GTextAlignmentCenter);
 
-
+  //Neutralize Code
   // Create a text layer and set the text
   navigation_header = text_layer_create(GRect(0, 0, 144, 30));
   text_layer_set_text(navigation_header, "Type in Code");
@@ -425,7 +560,7 @@ void window_load (Window *window){
   text_layer_set_font(navigation_input, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
   text_layer_set_text_alignment(navigation_input, GTextAlignmentCenter);
 
-
+  //Capture Player
   // Create a text layer and set the text
   capture_header = text_layer_create(GRect(0, 0, 144, 30));
   text_layer_set_text(capture_header, "Type in Player Code");
@@ -442,11 +577,20 @@ void window_load (Window *window){
   text_layer_set_font(capture_input, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
   text_layer_set_text_alignment(capture_input, GTextAlignmentCenter);
 
+    // Create a text layer and set the text
+  player_input = text_layer_create(GRect(0, 30, 144, 50));
+  text_layer_set_text(player_input, "");
+  // Set the font and text alignment
+  text_layer_set_text_color(player_input, GColorBlue);
+  text_layer_set_font(player_input, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+  text_layer_set_text_alignment(player_input, GTextAlignmentCenter);
+
+
   //These are all of the callbacks
   //Cal backs for each of the menu layers
   MenuLayerCallbacks callbacks = {
-    .draw_row = (MenuLayerDrawRowCallback) draw_row_callback,
-    .get_num_rows = (MenuLayerGetNumberOfRowsInSectionsCallback) num_rows_callback,
+    .draw_row = (MenuLayerDrawRowCallback) draw_row_callback_three,
+    .get_num_rows = (MenuLayerGetNumberOfRowsInSectionsCallback) num_rows_callback_three,
     .select_click = (MenuLayerSelectCallback) select_click_callback
   };
 
@@ -468,11 +612,19 @@ void window_load (Window *window){
     .select_click = (MenuLayerSelectCallback) select_click_callback_four
   };
 
+  MenuLayerCallbacks callbacksfive = {
+    .draw_row = (MenuLayerDrawRowCallback) draw_row_callback_three,
+    .get_num_rows = (MenuLayerGetNumberOfRowsInSectionsCallback) num_rows_callback_three,
+    .select_click = (MenuLayerSelectCallback) select_click_callback_five
+  };
+
   // Set all the callbacks for the menu layer
   menu_layer_set_callbacks(player_menu, NULL, callbacks);
   menu_layer_set_callbacks(option_menu, NULL, callbackstwo);
   menu_layer_set_callbacks(neutralize_keyboard, NULL, callbacksthree);
   menu_layer_set_callbacks(capture_keyboard, NULL, callbacksfour);
+  menu_layer_set_callbacks(team_name_keyboard, NULL, callbacksfive);
+
 
 
   // Add it to the window for display
@@ -486,6 +638,11 @@ void window_load (Window *window){
   layer_add_child(window_get_root_layer(capture_window), menu_layer_get_layer(capture_keyboard));
   layer_add_child(window_get_root_layer(capture_window), text_layer_get_layer(capture_header));
   layer_add_child(window_get_root_layer(capture_window), text_layer_get_layer(capture_input));
+  layer_add_child(window_get_root_layer(window), text_layer_get_layer(player_input));
+  layer_add_child(window_get_root_layer(choose_team_window), menu_layer_get_layer(team_name_keyboard));
+  layer_add_child(window_get_root_layer(choose_team_window), text_layer_get_layer(team_header));
+  layer_add_child(window_get_root_layer(choose_team_window), text_layer_get_layer(team_input));
+
 }
 
 //Unloads the window
@@ -498,12 +655,18 @@ void window_unload (Window *window) {
   text_layer_destroy(navigation_input);
   text_layer_destroy(capture_input);
   text_layer_destroy(capture_header);
+  text_layer_destroy(player_input);
+  text_layer_destroy(team_input);
+  text_layer_destroy(team_header);
+
+
 
   //Destroy the menu layers
   menu_layer_destroy(player_menu);
   menu_layer_destroy(option_menu);
   menu_layer_destroy(neutralize_keyboard);
   menu_layer_destroy(capture_keyboard);
+  menu_layer_destroy(team_name_keyboard);
 
 
 }
@@ -516,6 +679,7 @@ void init() {
   // Open AppMessage
   app_message_open(inbox_size, outbox_size);
   window = window_create();
+  choose_team_window=window_create();
   window2= window_create();
   neutralize_window= window_create();
   capture_window =window_create();
@@ -553,6 +717,9 @@ void init() {
   //   APP_LOG(APP_LOG_LEVEL_ERROR, "Error sending the outbox: %d", (int)result);
 
   // }
+
+
+  
   // Prepare the outbox buffer for this message
 AppMessageResult result = app_message_outbox_begin(&out_iter);
 
@@ -584,7 +751,6 @@ else {
 }
 
 
-
 //Deinitialize Method
 void deinit() {
   //Destroys all of the windows
@@ -592,6 +758,7 @@ void deinit() {
   window_destroy(window2);
   window_destroy(neutralize_window);
   window_destroy(capture_window);
+  window_destroy(choose_team_window);
 
 }
 
