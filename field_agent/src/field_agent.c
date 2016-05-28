@@ -5,9 +5,6 @@
 #include <stdbool.h>  
 #include <string.h>
 
-  
-
-
 //Deven Orie-CS50-Field Agent
 //pebble clean
 //pebble build
