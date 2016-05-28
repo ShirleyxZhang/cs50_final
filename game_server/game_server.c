@@ -70,14 +70,16 @@ static list_t* load_codedrops(char* codedrop_path);
 static location_t* new_location(float latitude, float longitude);
 static void process_message(char* buffer, char* message[]);
 static int validateOP (char* message[]);
-static void generate_ID(char ID[], int length);
+static void generate_hex(char ID[], int length);
 static FA_t* create_player(char* teamname, struct sockaddr_in address, char* pebbleid, char* playername, float latitude, float longitude, list_t* playerlist);
 static team_t* create_team(void);
 static GA_t* create_guide(char* teamname, struct sockaddr_in address,char* guideid ,char* playername) ;
 static codedrop_t* new_codedrop(void);
-int socket_setup(int port);
+static int socket_setup(int port);
+static void capturing_player(FA_t* found_player);
+static bool within_radius(location_t* loc1, location_t* loc2);
 
-
+hashtable_t* maybe_capture_table = new_hashtable(NULL);
 
 int main(const int argc, char *argv[])
 {
@@ -91,7 +93,7 @@ int main(const int argc, char *argv[])
 	//initialize stuff
 	const int ID_LENGTH = 8;
 	char gameID[ID_LENGTH];
-	generate_ID(gameID, ID_LENGTH);
+	generate_hex(gameID, ID_LENGTH);
 
 	list_t* playerlist = list_new(NULL);
 	if (playerlist == NULL) {
@@ -201,12 +203,18 @@ int main(const int argc, char *argv[])
 
 				else if (strcmp(request,"FA_CAPTURE") == 0){
 					//get request to capture. i.e. captureID is 0
+					char* captureid = message[5];
+					if (atoi(captureid) = 0)
 					//loop through player list to find all players within 10m radius, not on this players team
-					//send each a random hexcode
-					//start time for each player. createstart = time()
-					// player-> capturestarttime
-					//hashtable - key-uniquehex - insert player stuct as data 
-					
+					list_iterate(playerlist,with_capture_area,listfind(playerlist, pebbleid));
+
+					else {
+						if ((FA_t* found_player = hashtable_find(maybe_capture_table,captureid)) != NULL) {
+							if (capture_player(found_player)){
+								check_team_status(found_player);
+							}
+						}
+					}
 					//else get request to capture a player
 					// lookuphahstable to find palyer corresponding to the hexcode. check capturestarttime and find
 					//difference to current time, if less than 60, change player status to inactive(capture= true)
@@ -345,11 +353,11 @@ static FA_t* create_player(char* teamname, struct sockaddr_in address, char* peb
 
 }
 
-/******generate_ID*****
-* Generates random 8 hexdecimal ID
+/******generate_hex*****
+* Generates hexcode
 *
 */ 
-static void generate_ID(char ID[], int length)
+static void generate_hex(char ID[], int length)
 {
 	const char *hex_digits = "0123456789ABCDEF";
     int i;
@@ -495,8 +503,7 @@ static void parse_arguments(const int argc, char *argv[])
 /* All the ugly work of preparing the datagram socket;
  * exit program on any error.
  */
-int
-socket_setup(int port)
+static int socket_setup(int port)
 {
 	// Create socket on which to listen (file descriptor)
 	int comm_sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -527,6 +534,46 @@ socket_setup(int port)
 }
 
 
+static void with_capture_area(void *arg, char *key, void *data)
+{
+	FA_t* capturing_player = (list_t*)arg;
+	FA_t* maybe_capture_player = (FA_t*)data;
+	//if maybe capture player is within 10min radius and not on same team, send hexcode
+	if (within_radius(capturing_player->location,maybe_capture_player->location) &&
+		strcmp(maybe_capture_player->team,capturing_player->team) != 0) {
+		const int LENGTH = 8;
+		char rand_hex[LENGTH];
+		generate_hex(rand_hex,LENGTH);
+		if (sendto(comm_sock,rand_hex, nbytes, 0, (struct sockaddr *) &maybe_capture_player->address, sizeof(them)) < 0)
+			fprintf(stderr,"error sending in datagram socket");
+		else {
+			hashtable_insert(maybe_capture_table,rand_hex,maybe_capture_player);
+			maybe_capture_player->capturestarttime = time(NULL);
+		}
+	}
 
+}
 
+static bool within_radius(location_t* loc1, location_t* loc2)
+{
+	return ((loc1->latitude - loc2->latitude) < 10 && (loc1->longitude - loc2->longitude) < 10);
+}
+
+static bool capturing_player(FA_t* found_player)
+{
+	time_t curr = time(NULL);
+	if (curr - round_player->capturestarttime < 60) {
+		found_player->capture = true;
+		if (sendto(comm_sock,MI_CAPTURE_SUCCESS, nbytes, 0, (struct sockaddr *) &(found_player->address), sizeof(them)) < 0)
+			fprintf(stderr,"error sending in datagram socket");
+		else
+			return true;
+	}
+	return false;
+}
+
+static void check_team_status(found_player)
+{
+	list_iterator(teamlist->FA_list,check_player_status,)
+}
 
