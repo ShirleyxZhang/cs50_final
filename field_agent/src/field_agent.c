@@ -1,8 +1,25 @@
 #include <pebble.h>
+#include <mission.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>   
+
 //Deven Orie-CS50-Field Agent
 //pebble clean
 //pebble build
 //pebble install --serial /dev/cu.PebbleTime5B57-SerialPo
+
+typedef enum {
+  AppKeyTemperature = 0,  // Key: 0
+  AppKeyWindSpeed,        // Key: 1
+  AppKeyWindDirection,    // Key: 2
+  AppKeyRequestData,      // Key: 3
+  AppKeyLocationName      // Key: 4
+} AppKeys;
+
+// Declare the dictionary's iterator
+DictionaryIterator *out_iter;
+
 
 //Windows for each screen of the app
 Window *window, *window2, *neutralize_window, *capture_window;
@@ -27,7 +44,7 @@ char *hex_test[]={"1234", "ABCD", "A1A2"};
 char *player_id[]={"1111", "AAAA", "BBBB"};
 
 //Symbols for the key board
-char *symbols[]={"0","1","2","3","4","5","6","7","8","9","A","B","C","D","E", "F","G","H", "I", "J", "K", "L", "M", "N",
+char *symbols[]={"SUBMIT CODE", "0","1","2","3","4","5","6","7","8","9","A","B","C","D","E", "F","G","H", "I", "J", "K", "L", "M", "N",
 "O","P","Q","R","S", "T", "U", "V", "W", "X", "Y", "Z"};
 
 //Player selected in screen one
@@ -49,6 +66,62 @@ int incrementer_two=0;
 bool match=false;
 bool match_two=false;
 
+// Largest expected inbox and outbox message sizes
+const uint32_t inbox_size = 64;
+const uint32_t outbox_size = 256;
+
+// Register to be notified about inbox received events
+//app_message_register_inbox_received(inbox_received_callback);
+
+
+// static void inbox_received_callback(DictionaryIterator *iter, void *context) {
+//   // A new message has been successfully received
+
+// }
+
+// Register to be notified about inbox dropped events
+//app_message_register_inbox_dropped(inbox_dropped_callback);
+
+static void inbox_dropped_callback(AppMessageResult reason, void *context) {
+  // A message was received, but had to be dropped
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped. Reason: %d", (int)reason);
+}
+
+
+// Register to be notified about outbox sent events
+//app_message_register_outbox_sent(outbox_sent_callback);
+
+static void outbox_sent_callback(DictionaryIterator *iter, void *context) {
+  // The message just sent has been successfully delivered
+
+}
+
+// Register to be notified about outbox failed events
+//app_message_register_outbox_failed(outbox_failed_callback);
+static void outbox_failed_callback(DictionaryIterator *iter,
+                                      AppMessageResult reason, void *context) {
+  // The message just sent failed to be delivered
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Message send failed. Reason: %d", (int)reason);
+}
+
+
+static void inbox_received_callback(DictionaryIterator *iter, void *context) {
+  // Is the location name inside this message?
+  // Tuple *location_tuple = dict_find(iter, AppKeyLocationName);
+  // if(location_tuple) {
+  //   // This value was stored as JS String, which is stored here as a char string
+  //   char *location_name = location_tuple->value->cstring;
+
+  //   // Use a static buffer to store the string for display
+  //   static char s_buffer[MAX_LENGTH];
+  //   snprintf(s_buffer, sizeof(s_buffer), "Location: %s", location_name);
+
+  //   // Display in the TextLayer
+  //   text_layer_set_text(s_text_layer, s_buffer);
+  // }
+}
+
+
 //{The Player Menu}-Menu One
 // This is the menu item draw callback where you specify what each item should look like
 void draw_row_callback (GContext *ctx, Layer *cell_layer, MenuIndex *cell_index, void *callback_context) {
@@ -69,6 +142,7 @@ void draw_row_callback (GContext *ctx, Layer *cell_layer, MenuIndex *cell_index,
     case 4:
         menu_cell_basic_draw(ctx, cell_layer, players[4], NULL, NULL);
         break;
+
     }
 }
 //The Player Menu}-Menu One
@@ -85,6 +159,7 @@ void select_click_callback (MenuLayer *player_menu, MenuIndex *cell_index, void 
   //window_stack_remove(window_stack_get_top_window());
   //vibes_enqueue_custom_pattern(pattern);
   window_stack_push(window2,true);
+
 }
 
 //{Option Menu}}-Menu Two
@@ -93,18 +168,24 @@ void draw_row_callback_two (GContext *ctx, Layer *cell_layer, MenuIndex *cell_in
 
     switch (cell_index->row) {
     case 0:
-        menu_cell_basic_draw(ctx, cell_layer, "Neutralize Code", NULL, NULL);
+        menu_cell_basic_draw(ctx, cell_layer, "Neutralize Code", "Neutralize Hex Code", NULL);
         break;
     case 1:
-        menu_cell_basic_draw(ctx, cell_layer, "Capture Player", NULL, NULL);
+        menu_cell_basic_draw(ctx, cell_layer, "Capture Player", "Input Player ID", NULL);
         break;
+    case 2:
+        menu_cell_basic_draw(ctx, cell_layer, "Hints", "My Hints", NULL);
+        break; 
+    case 3:
+        menu_cell_basic_draw(ctx, cell_layer, "Steps", "Health", NULL);
+        break;                 
 
     }
 }
 //{Option Menu}}-Menu Two
 //Sets the amount of rows for the Second Menu
 uint16_t num_rows_callback_two (MenuLayer *player_menu, uint16_t section_index, void *callback_context) {
-  return 2;
+  return 4;
 }
 
 //{Option Menu}}-Menu Two
@@ -175,64 +256,8 @@ void draw_row_callback_three (GContext *ctx, Layer *cell_layer, MenuIndex *cell_
         break;
     case 16:
         menu_cell_basic_draw(ctx, cell_layer, symbols[16], NULL, NULL);
-        break;
-    case 17:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[17], NULL, NULL);
-        break;
-    case 18:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[18], NULL, NULL);
-        break;
-    case 19:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[19], NULL, NULL);
-        break;
-    case 20:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[20], NULL, NULL);
-        break;
-    case 21:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[21], NULL, NULL);
-        break;
-    case 22:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[22], NULL, NULL);
-        break;
-    case 23:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[23], NULL, NULL);
-        break;
-    case 24:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[24], NULL, NULL);
-        break;
-    case 25:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[25], NULL, NULL);
-        break;
-    case 26:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[26], NULL, NULL);
-        break;
-    case 27:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[27], NULL, NULL);
-        break;
-    case 28:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[28], NULL, NULL);
-        break;
-    case 29:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[29], NULL, NULL);
-        break;
-    case 30:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[30], NULL, NULL);
-        break;
-    case 31:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[31], NULL, NULL);
-        break;
-    case 32:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[32], NULL, NULL);
-        break;
-    case 33:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[33], NULL, NULL);
-        break;
-    case 34:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[34], NULL, NULL);
-        break;
-    case 35:
-        menu_cell_basic_draw(ctx, cell_layer, symbols[35], NULL, NULL);
-        break;
+        break;        
+    
     }
 }
 
@@ -240,7 +265,7 @@ void draw_row_callback_three (GContext *ctx, Layer *cell_layer, MenuIndex *cell_
 //Each section has a number of items;  we use a callback to specify this
 //Sets number of rows in the menu
 uint16_t num_rows_callback_three (MenuLayer *neutralize_keyboard, uint16_t section_index, void *callback_context) {
-  return 36;
+  return 17;
 }
 
 //{Key Board}}-Neutralize KeyBoard
@@ -249,54 +274,51 @@ void select_click_callback_three (MenuLayer *neutralize_keyboard, MenuIndex *cel
   int which = cell_index->row;
   int index = sizeof(hex_test);
 
-  //if the code is not greater than for characters 
-  if (incrementer!=4){
-    //symbol that is chosen from the keyboard
-    chosen_symbol=symbols[which];
-    //concatinate the buffer with the chose symbol to create a code (string)
-    strcat(buf, chosen_symbol);  
-    //add the concatinated string to the navigation output showing what character have already been entered
-    text_layer_set_text(navigation_input, buf);
-    //Sleep for 1/2 second 
-    psleep(500);
-    //Increment 
-    incrementer++;
+  if (which!=0){
+    //if the code is not greater than for characters 
+    if (incrementer!=4){
+      //symbol that is chosen from the keyboard
+      chosen_symbol=symbols[which];
+      //concatinate the buffer with the chose symbol to create a code (string)
+      strcat(buf, chosen_symbol);  
+      //add the concatinated string to the navigation output showing what character have already been entered
+      text_layer_set_text(navigation_input, buf);
+      //Sleep for 1/2 second 
+      psleep(100);
+      //Increment 
+      incrementer++;
+    }
   }
+    //Once we have 4 characters
+    if (incrementer==4&&which==0){
+      //Iterate though the array of hex_codes
+      for (int i=0; i<index; i++){
+        //Comapre the strings 
+        if (strcmp(buf,hex_test[i]) == 0){
+          //Set to true if there is a match
+          match=true;
+        }
+      }//for loop
 
-  //Once we have 4 characters
-  if (incrementer==4){
-    //Iterate though the array of hex_codes
-    for (int i=0; i<index; i++){
-      //Comapre the strings 
-      if (strcmp(buf,hex_test[i]) == 0){
-        //Set to true if there is a match
-        match=true;
-      }
-    }//for loop
+      //If a match is found print out the following else....
+      if (match){
+        text_layer_set_text(navigation_header, "Neutralized!");
 
-    //If a match is found print out the following else....
-    if (match){
-      text_layer_set_text(navigation_header, "Neutralized!");
-      psleep(1000);
+      }else{
+        text_layer_set_text(navigation_header, "Unable to Neutralize!");
 
-    }else{
-      text_layer_set_text(navigation_header, "Unable to Neutralize!");
-      psleep(1000);
+      } 
+      //Resets all of the booleans, integers, and buffers
+      match=false;    
+      memset(buf, 0, 10);
+      incrementer=0;
+      text_layer_set_text(navigation_input, buf);
+    }//main if
 
-    } 
-    //Resets all of the booleans, integers, and buffers
-    match=false;    
-    //char buf[10];
-
-    // for(int i = 0; i < 10; i++)
-    // {
-    //   buf[i]='\0';
+    //If submitting before the code is at four characters
+    // if (incrementer<4&&which==0){
+    //   text_layer_set_text(navigation_header, "Must Be 4 Chars!");
     // }
-    //strcpy(buf, "");
-    memset(buf, 0, sizeof(buf));
-    incrementer=0;
-    text_layer_set_text(navigation_input, buf);
-  }//main if
 
 }
 
@@ -305,22 +327,24 @@ void select_click_callback_three (MenuLayer *neutralize_keyboard, MenuIndex *cel
 void select_click_callback_four (MenuLayer *capture_keyboard, MenuIndex *cell_index, void *callback_context) {
    int which = cell_index->row;
    int index = sizeof(hex_test);
+  if (which!=0){
 
-  //if the code is not greater than for characters 
-  if (incrementer_two!=4){
-    //symbol that is chosen from the keyboard
-    chosen_symbol_two=symbols[which];
-    //concatinate the buffer with the chose symbol to create a code (string)
-    strcat(buf_two, chosen_symbol_two);  
-    //add the concatinated string to the navigation output showing what character have already been entered
-    text_layer_set_text(capture_input, buf_two);
-    //Sleep for 1/2 second 
-    psleep(500);
-    //increment
-    incrementer_two++;
+    //if the code is not greater than for characters 
+    if (incrementer_two!=4){
+      //symbol that is chosen from the keyboard
+      chosen_symbol_two=symbols[which];
+      //concatinate the buffer with the chose symbol to create a code (string)
+      strcat(buf_two, chosen_symbol_two);  
+      //add the concatinated string to the navigation output showing what character have already been entered
+      text_layer_set_text(capture_input, buf_two);
+      //Sleep for 1/2 second 
+      psleep(100);
+      //increment
+      incrementer_two++;
+    }
   }
   //Once we have 4 characters
-  if (incrementer_two==4){
+  if (incrementer_two==4&&which==0){
     //Iterate though the array of player_codes
     for (int i=0; i<index; i++){
       //Comapre the strings 
@@ -333,30 +357,23 @@ void select_click_callback_four (MenuLayer *capture_keyboard, MenuIndex *cell_in
     //If a match is found print out the following else....
     if (match_two){
       text_layer_set_text(capture_header, "Player Captured!");
-      psleep(1000);
 
     }else{
       text_layer_set_text(capture_header, "Unable to Capture!");
-      psleep(1000);
 
     } 
     //Resets all of the booleans, integers, and buffers
-
     match_two=false;    
-    //char buf[10];
-
-    // for(int i = 0; i < 10; i++)
-    // {
-    //   buf[i]='\0';
-    // }
-    //strcpy(buf, "");
-    memset(buf_two, 0, sizeof(buf_two));
+    memset(buf_two, 0, 10);
     incrementer_two=0;
     text_layer_set_text(capture_input, buf_two);
   }//main if
 
+  //If submitting before the code is at four characters
+  // if (incrementer_two<4&&which==0){
+  //     text_layer_set_text(navigation_header, "Must Be 4 Chars!");
+  // }
 }
-
 
 // This initializes the menu upon window load
 void window_load (Window *window){
@@ -491,9 +508,13 @@ void window_unload (Window *window) {
 
 }
 
+
 //Initialize Method
 void init() {
+
   //Creates all of the windows
+  // Open AppMessage
+  app_message_open(inbox_size, outbox_size);
   window = window_create();
   window2= window_create();
   neutralize_window= window_create();
@@ -501,6 +522,57 @@ void init() {
 
   Layer *window_layer = window_get_root_layer(window);
 
+  //****************************************************************//
+  // Prepare the outbox buffer for this message
+  //AppMessageResult result = app_message_outbox_begin(&out_iter);
+
+  // if(result == APP_MSG_OK) {
+  // // Construct the message
+
+  // } 
+  // else {
+  // // The outbox cannot be used right now
+  // APP_LOG(APP_LOG_LEVEL_ERROR, "Error preparing the outbox: %d", (int)result);
+  // }
+
+  // if(result == APP_MSG_OK) {
+  // // A dummy value
+  // int value = 0;
+
+  // // Add an item to ask for weather data
+  // dict_write_int(out_iter, AppKeyRequestData, &value, sizeof(int), true);
+
+  // }
+
+
+  // // Send this message
+  // result = app_message_outbox_send();
+
+  // // Check the result
+  // if(result != APP_MSG_OK) {
+  //   APP_LOG(APP_LOG_LEVEL_ERROR, "Error sending the outbox: %d", (int)result);
+
+  // }
+  // Prepare the outbox buffer for this message
+AppMessageResult result = app_message_outbox_begin(&out_iter);
+
+if(result == APP_MSG_OK) {
+  // Add an item to ask for weather data
+  int value = 0;
+  dict_write_int(out_iter, AppKeyRequestData, &value, sizeof(int), true);
+
+  // Send this message
+  result = app_message_outbox_send();
+  if(result != APP_MSG_OK) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "Error sending the outbox: %d", (int)result);
+  }//inner if
+} //outer if
+else {
+  // The outbox cannot be used right now
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Error preparing the outbox: %d", (int)result);
+}
+
+//****************************************************************//
 
   // Setup the window handlers
   WindowHandlers handlers = {
@@ -510,6 +582,8 @@ void init() {
   window_set_window_handlers (window, (WindowHandlers) handlers);
   window_stack_push (window, true);
 }
+
+
 
 //Deinitialize Method
 void deinit() {
@@ -521,10 +595,13 @@ void deinit() {
 
 }
 
+
 //Main Method Runs the application 
 int main(void) {
   init();
   app_event_loop();
   deinit();
 }
+
+
 
