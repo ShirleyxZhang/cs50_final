@@ -29,7 +29,7 @@
 # 	rm -f $(PROG)
 
 
-CFLAGS = -Wall -pedantic -std=c11 -ggdb
+CFLAGS = -Wall -pedantic -std=c11 -ggdb -lm
 PROG = game_server
 OBJS = game_server.o
 ###GTKFLAGS = `pkg-config --cflags --libs gtk+-3.0` 

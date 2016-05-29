@@ -46,8 +46,8 @@ bool hashtable_insert(hashtable_t *ht, char *key, void *data);
 /* Iterates through the hashtable data structure */
 void
 hashtable_iterate(hashtable_t *table,
-		  void (*itemfunc)(void *arg, char *key, void *data),
-		  void *arg);
+		  void (*itemfunc)(void *arg, char *key, void *data, void* optional),
+		  void *arg, void* optional);
 
 
 #endif // __HASHTABLE_H  

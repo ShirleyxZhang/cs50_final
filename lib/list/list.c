@@ -26,7 +26,7 @@ typedef struct listnode {
 
 
 /**************** global types ****************/
-//typedef struct list list_t;
+typedef struct list list_t;
 
 
 /**************** global functions ****************/
@@ -186,15 +186,15 @@ list_delete(list_t *list)
  * call itemfunc for each item, passing (arg, key, data).
  */
 void list_iterate(list_t *list,
-		  void (*itemfunc)(void *arg, char *key, void *data),
-		  void *arg)
+		  void (*itemfunc)(void *arg, char *key, void *data, void* optional),
+		  void *arg, void* optional)
 {
   if (list == NULL || itemfunc == NULL)
     return;
   else {
     // loop through all the items in the list
     for (listnode_t *node = list->head; node != NULL; node = node->next) {
-      (*itemfunc)(arg, node->key, node->data);
+      (*itemfunc)(arg, node->key, node->data, optional);
     }
   }
   return;

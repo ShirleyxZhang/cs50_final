@@ -45,8 +45,8 @@ bool list_insert(list_t *list, char *key, void *data);
  * call itemfunc for each item, passing (arg, key, data).
  */
 void list_iterate(list_t *list,
-		  void (*itemfunc)(void *arg, char *key, void *data),
-		  void *arg);
+		  void (*itemfunc)(void *arg, char *key, void *data, void* optional),
+		  void *arg, void* optional);
 
 
 #endif // __LIST_H

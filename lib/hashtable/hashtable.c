@@ -138,8 +138,8 @@ hashtable_delete(hashtable_t *ht)
 /* Iterates through the hashtable data structure */
 void
 hashtable_iterate(hashtable_t *table,
-		  void (*itemfunc)(void *arg, char *key, void *data),
-		  void *arg)
+		  void (*itemfunc)(void *arg, char *key, void *data, void *optional),
+		  void *arg, void *optional)
 { 
   if (table == NULL || itemfunc == NULL)
     return;
@@ -148,7 +148,7 @@ hashtable_iterate(hashtable_t *table,
     for (int i = 0; i < table->num_slots; i++) {
       if (table->array[i] != NULL) {
 	// iterate through the list in each slot
-	list_iterate(table->array[i], itemfunc, arg);
+	list_iterate(table->array[i], itemfunc, arg, optional);
       }
     }
   }
