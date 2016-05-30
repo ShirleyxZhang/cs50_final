@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdbool.h>  
 #include <string.h>
-
+//Server
 //#define AppKeyLocation 0
 
 //Deven Orie-CS50-Field Agent
@@ -15,6 +15,9 @@
 //pebble logs --phone 10.31.117.204
 //make install-emulator
 //pebble install --phone 10.31.117.204 --logs
+//pebble install --phone 10.31.240.237 --logs
+
+//make start-proxy
 
 //Windows for each screen of the app
 Window *window, *choose_team_window, *window2, *neutralize_window, *capture_window;
@@ -43,7 +46,9 @@ static char team_name[20]="0";
 static char guide_id[10];
 static char capture_id[10];
 
-static char status_req[10]="0";
+
+
+static char status_req[3]="0";
 
 static char location[90]="0";
 
@@ -97,10 +102,12 @@ const uint32_t inbox_size = 64;
 const uint32_t outbox_size = 256;
 
 
-static char message[8191];
+static char message[300];
 static char neutralize_message[8191];
 static char capture_message[8191];
 
+char *game_status_key_check="GAME_STATUS";
+char *game_status_capture_key_check="GS_CAPTURE_ID";
 
 
 //*********************OP Codes****************************************//
@@ -112,7 +119,6 @@ static char capture_message[8191];
 
 
 //snprintf(neutralize_message, 8191, "FA_NEUTRALIZE|%s|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, location, code_neutral);
-
 //snprintf(capture_message, 8191, "FA_CAPTURE|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, capture_id);
 
 
@@ -165,16 +171,17 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
         APP_LOG(APP_LOG_LEVEL_DEBUG, "Got AppKeyJSReady: %s", ready_str);
         strcpy(pebble_id,ready_str);
         sendMessage(AppKeyLocation,"1");
-        sendMessage(AppKeySendMsg,"Hello Shirley");
     }
 
     //Receiving A Message 
     Tuple *received_message = dict_find(iter, AppKeyRecvMsg);
     if (received_message){
       char *hold_message = received_message->value->cstring;
-      static char message_buffer[8191];
-      snprintf(message_buffer, 8191, "%s", hold_message);
-      LOG("Message From Server %s", message_buffer);
+      //static char message_buffer[8191];
+      //snprintf(message_buffer, 8191, "%s", hold_message);
+
+      LOG("Message From Server");
+
 
       //set equal to a string pointer
       //received_message->value->cstring;
@@ -186,26 +193,11 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
      // This value was stored as JS String, which is stored here as a char string
      char *location_name = location_tuple->value->cstring;
      // Use a static buffer to store the string for display
-     //static char s_buffer[8191];
-     //snprintf(s_buffer, 8191, "%s", location_name);
+
      strcpy(location,location_name);
      //LOG("HERE IS THE LOCATION %s", s_buffer);
   }
 
-
-    //Tuple *send_server = dict_find(iter, AppKeySendMsg);
-    //if(send_server) {
-     // LOG("sending message");
-
-
-     // This value was stored as JS String, which is stored here as a char string
-     
-     //char *location_name = location_tuple->value->cstring;
-     // Use a static buffer to store the string for display
-     //static char s_buffer[8191];
-     //snprintf(s_buffer, 8191, "%s", location_name);
-     //LOG("HERE IS THE LOCATION %s", s_buffer);
-   //}
 }
 //*************************SENT INT*********************************//
 
@@ -215,10 +207,12 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed){
   
-  if((tick_time->tm_sec % 15 == 0) &&(team_registered)){
+  if((tick_time->tm_sec % 4 == 0) &&(team_registered)){
     sendMessage(AppKeyLocation,"1");
-    snprintf(message, 8191, "FA_LOCATION|%s|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, location, status_req);
+    memset(message, 0, 300);
+    snprintf(message, 300, "FA_LOCATION|%s|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, location, status_req);
     LOG(message);
+    strcpy(status_req, "1");
     sendMessage(AppKeySendMsg, message);
   }
 }
@@ -924,5 +918,4 @@ int main(void) {
   app_event_loop();
   deinit();
 }
-
 
