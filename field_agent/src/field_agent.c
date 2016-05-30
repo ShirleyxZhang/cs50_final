@@ -5,6 +5,8 @@
 #include <stdbool.h>  
 #include <string.h>
 
+//#define AppKeyLocation 0
+
 //Deven Orie-CS50-Field Agent
 
 //pebble install --serial /dev/cu.PebbleTime5B57-SerialPo
@@ -14,20 +16,10 @@
 //make install-emulator
 //pebble install --phone 10.31.117.204 --logs
 
-
-
-// enum {
-//   AppKeyJSReady = 0,      // The JS environment on the companion smartphone is up and running!
-//   AppKeySendMsg,          // Send a message over Bluetooth to the companion smartphone and then on to the Game Server
-//   AppKeyRecvMsg,          // A message from the Game Server is available (arrived over Bluetooth)
-//   AppKeyLocation,         // Request your GPS location from the companion smartphone
-//   AppKeyPebbleId,         // Request your unique pebble ID from the companion smartphone
-//   AppKeySendError         // Error: companion app can't connect to the Proxy (and ultimately the Game Server).
-// };
-
 //Windows for each screen of the app
 Window *window, *choose_team_window, *window2, *neutralize_window, *capture_window;
 Window *getting_captured;
+Window *hints_window;
 
 //Allows for menu built on top of scroll view
 MenuLayer *player_menu, *option_menu;
@@ -41,9 +33,24 @@ TextLayer *team_header, *team_input;
 TextLayer *capture_code_text;
 TextLayer *capture_text;
 
+static TextLayer *s_text_layer;
+static ScrollLayer *s_scroll_layer;
 
-//Array of player names
-char *players[]={"Deven","Drew","Shirley","David","Sam"};
+static char player_name[20]="0";
+static char game_id[30]="0";
+static char pebble_id[35]="0";
+static char team_name[20]="0";
+static char guide_id[10];
+static char capture_id[10];
+
+static char status_req[10]="0";
+
+static char location[90]="0";
+
+//static bool player_registered=false;
+static bool team_registered=false;
+
+static char code_neutral[10]="0";
 
 //Array of the neutralization codes
 char *hex_test[]={"1234", "ABCD", "A1A2"};
@@ -80,15 +87,9 @@ int team_letter_incrementer=0;
 bool match=false;
 bool match_two=false;
 
-int pebbleId=0;
-int gameId=0;
 
-        
-int lat=10;
-int lon=10;
 //request update = 1
 //norequest = 0
-int statusReq=0;
 
 
 // Largest expected inbox and outbox message sizes
@@ -96,84 +97,46 @@ const uint32_t inbox_size = 64;
 const uint32_t outbox_size = 256;
 
 
+static char message[8191];
+static char neutralize_message[8191];
+static char capture_message[8191];
+
+
+
 //*********************OP Codes****************************************//
 //FA_LOCATION|gameId|pebbleId|teamName|playerName|lat|long|statusReq
-void location_op(){
-  //8k buffer
-  char message[8191];
-  char convert[8191];
-
-  strcat(message, "FA_LOCATION|");
-  snprintf(convert,8191,"%d",gameId);
-  strcat(message,convert);
-  strcat(message,"|");
-  snprintf(convert,8191,"%d",pebbleId);
-  strcat(message,convert);
-  strcat(message,"|");
-  strcat(message,teamName);
-  strcat(message,"|");
-  strcat(message,playerName);
-  strcat(message,"|");
-  snprintf(convert,8191,"%d",lat);
-  strcat(message,convert);
-  strcat(message,"|");
-  snprintf(convert,8191, "%d", lon);
-  strcat(message,convert);
-  strcat(message,"|");
-  snprintf(convert, 8191, "%d", statusReq);
-  strcat(message,convert);
-}
 
 //FA_NEUTRALIZE|gameId|pebbleId|teamName|playerName|lat|long|codeId
-void neutralize_op(){
-  //8k buffer
-  char message[8191];
-  char convert[8191];
-
-  strcat(message, "FA_NEUTRALIZE|");
-  snprintf(convert,8191,"%d",gameId);
-  strcat(message,convert);
-  strcat(message,"|");
-  snprintf(convert,8191,"%d",pebbleId);
-  strcat(message,convert);
-  strcat(message,"|");
-  strcat(message,teamName);
-  strcat(message,"|");
-  strcat(message,playerName);
-  strcat(message,"|");
-  snprintf(convert,8191,"%d",lat);
-  strcat(message,convert);
-  strcat(message,"|");
-  snprintf(convert,8191, "%d", lon);
-  strcat(message,convert);
-  strcat(message,"|");
-  strcat(message,neutralization_code);
-}
 
 //FA_CAPTURE|gameId|pebbleId|teamName|playerName|captureId
-void capture_op(){
-  //8k buffer
-  char message[8191];
-  char convert[8191];
 
-  strcat(message, "FA_NEUTRALIZE|");
-  snprintf(convert,8191,"%d",gameId);
-  strcat(message,convert);
-  strcat(message,"|");
-  snprintf(convert,8191,"%d",pebbleId);
-  strcat(message,convert);
-  strcat(message,"|");
-  strcat(message,teamName);
-  strcat(message,"|");
-  strcat(message,playerName);
-  strcat(message,"|");
-  strcat(message,capture_code);
-} 
 
+//snprintf(neutralize_message, 8191, "FA_NEUTRALIZE|%s|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, location, code_neutral);
+
+//snprintf(capture_message, 8191, "FA_CAPTURE|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, capture_id);
+
+
+
+static void sendMessage(int key, char* value) {
+    //LOG("SendMessage Method Called");
+    // Declare the dictionary's iterator
+    DictionaryIterator *iter;
+
+    // Prepare the outbox buffer for this message
+    app_message_outbox_begin(&iter);
+
+    dict_write_cstring(iter, key, value);
+    //dict_write_int(iter, key, &value, sizeof(int), true);
+    
+    app_message_outbox_send();
+
+
+
+}//end of the method
 //*************************PHONE CONNECTION CALLBACKS*******************************************//
 static void outbox_sent_callback(DictionaryIterator *iter, void *context) {
   // The message just sent has been successfully delivered
-  LOG("MESSAGE SENT");
+  //LOG("MESSAGE SENT");
 
 }  
 
@@ -190,85 +153,75 @@ static void inbox_dropped_callback(AppMessageResult reason, void *context) {
 
 
 //Add Check to this later
-static void in_received_handler(DictionaryIterator *iter, void *context) {
+static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   // Is the location name inside this message?
-  LOG("MESSAGE RECEIVED");
+  //LOG("MESSAGE RECEIVED");
 
+    //PEBBLE ID
+    Tuple *ready_tuple = dict_find(iter, AppKeyJSReady);
+    if(ready_tuple) {
+        // Log the value sent as part of the received message.
+        char *ready_str = ready_tuple->value->cstring;
+        APP_LOG(APP_LOG_LEVEL_DEBUG, "Got AppKeyJSReady: %s", ready_str);
+        strcpy(pebble_id,ready_str);
+        sendMessage(AppKeyLocation,"1");
+        sendMessage(AppKeySendMsg,"Hello Shirley");
+    }
+
+    //Receiving A Message 
+    Tuple *received_message = dict_find(iter, AppKeyRecvMsg);
+    if (received_message){
+      char *hold_message = received_message->value->cstring;
+      static char message_buffer[8191];
+      snprintf(message_buffer, 8191, "%s", hold_message);
+      LOG("Message From Server %s", message_buffer);
+
+      //set equal to a string pointer
+      //received_message->value->cstring;
+    }
+
+    //Location Tuple
    Tuple *location_tuple = dict_find(iter, AppKeyLocation);
    if(location_tuple) {
-  //   // This value was stored as JS String, which is stored here as a char string
+     // This value was stored as JS String, which is stored here as a char string
      char *location_name = location_tuple->value->cstring;
-
-  //   // Use a static buffer to store the string for display
-     static char s_buffer[8191];
-     snprintf(s_buffer, 8191, "Location: %s", location_name);
-
-    // Display in the TextLayer
-    text_layer_set_text(neutralize_code_text, s_buffer);
-    LOG("Log Buffer");
-    LOG(s_buffer);
-  }
-  //For Testing
-  if (!location_tuple){
-    LOG("Not True");
-    text_layer_set_text(neutralize_code_text, "Not Found");
+     // Use a static buffer to store the string for display
+     //static char s_buffer[8191];
+     //snprintf(s_buffer, 8191, "%s", location_name);
+     strcpy(location,location_name);
+     //LOG("HERE IS THE LOCATION %s", s_buffer);
   }
 
+
+    //Tuple *send_server = dict_find(iter, AppKeySendMsg);
+    //if(send_server) {
+     // LOG("sending message");
+
+
+     // This value was stored as JS String, which is stored here as a char string
+     
+     //char *location_name = location_tuple->value->cstring;
+     // Use a static buffer to store the string for display
+     //static char s_buffer[8191];
+     //snprintf(s_buffer, 8191, "%s", location_name);
+     //LOG("HERE IS THE LOCATION %s", s_buffer);
+   //}
 }
 //*************************SENT INT*********************************//
-static void sendInt(int key, int value) {
-    LOG("Initial Send");
-    // Declare the dictionary's iterator
-    DictionaryIterator *iter;
 
-    // Prepare the outbox buffer for this message
-    AppMessageResult result = app_message_outbox_begin(&iter);
-
-    if(result == APP_MSG_OK) {
-      // Construct & send the message.
-      dict_write_int(iter, key, &value, sizeof(int), true);
-      result = app_message_outbox_send();
-
-      if(result != APP_MSG_OK) {
-        LOG("ERROROne");
-      }
-    } 
-
-    else {  
-        LOG("ERRORTwo");
-    }
-}//end of the method
 
 //*********************************************************************//
 
 
-// static void sendMessage(){
-//   // Declare the dictionary's iterator
-//   DictionaryIterator *out_iter;
-//   // Prepare the outbox buffer for this message
-//   AppMessageResult result = app_message_outbox_begin(&out_iter);
-
-//   if(result == APP_MSG_OK) {
-//     // Add an item to ask for weather data
-//     int value = 0;
-
-//     dict_write_cstring(out_iter,0,"Hello");
-//     //dict_write_end(dictionaryIterator);
-
-
-//    // dict_write_int(out_iter, AppKeyRequestData, &value, sizeof(int), true);
-
-//     // Send this message
-//     result = app_message_outbox_send();
-//     if(result != APP_MSG_OK) {
-//       APP_LOG(APP_LOG_LEVEL_ERROR, "Error sending the outbox: %d", (int)result);
-//     }
-//   } else {
-//     // The outbox cannot be used right now
-//     APP_LOG(APP_LOG_LEVEL_ERROR, "Error preparing the outbox: %d", (int)result);
-//   }
-
-// }//end of send method
+static void tick_handler(struct tm *tick_time, TimeUnits units_changed){
+  
+  if((tick_time->tm_sec % 15 == 0) &&(team_registered)){
+    sendMessage(AppKeyLocation,"1");
+    snprintf(message, 8191, "FA_LOCATION|%s|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, location, status_req);
+    LOG(message);
+    sendMessage(AppKeySendMsg, message);
+  }
+}
 
 //*********************************************************************************//
 
@@ -295,10 +248,13 @@ void select_click_callback (MenuLayer *player_menu, MenuIndex *cell_index, void 
   }
     //Once we have 4 characters
     if (player_letter_incrementer>0&&which==0){
+
+          strcpy(player_name,playerName);
+          //player_registered=true;
           //window_stack_pop(true);
           psleep(100);
+          window_stack_pop(true);
           window_stack_push(choose_team_window,true);
-
           //timer = app_timer_register(200, getting_captured, 0);
     }
 }
@@ -318,27 +274,37 @@ void draw_row_callback_two (GContext *ctx, Layer *cell_layer, MenuIndex *cell_in
         menu_cell_basic_draw(ctx, cell_layer, "Hints", "My Hints", NULL);
         break; 
     case 3:
-        menu_cell_basic_draw(ctx, cell_layer, "Steps", "Health", NULL);
+        menu_cell_basic_draw(ctx, cell_layer, "Request Update", "Health", NULL);
         break;                 
 
     }
 }
 //{Option Menu}}-Menu Two
 //Sets the amount of rows for the Second Menu
-uint16_t num_rows_callback_two (MenuLayer *player_menu, uint16_t section_index, void *callback_context) {
+uint16_t num_rows_callback_two (MenuLayer *option_menu, uint16_t section_index, void *callback_context) {
   return 4;
 }
 
 //{Option Menu}}-Menu Two
 //Select for the Second Menu
-void select_click_callback_two (MenuLayer *player_menu, MenuIndex *cell_index, void *callback_context) {
+void select_click_callback_two (MenuLayer *option_menu, MenuIndex *cell_index, void *callback_context) {
   int option = cell_index->row;
   if (option==0){
     //Go the the neutralize screen
     window_stack_push(neutralize_window,true);
-  } else{
+  } 
+  if (option==1){
     //Go the the capture screen
     window_stack_push(capture_window,true);
+  }
+
+  if (option==2){
+    window_stack_push(hints_window,true);
+  }
+
+  if (option==3){
+    LOG("REQUEST UPDATE FROM GAME SERVER");
+    psleep(5000);
   }
 
 }
@@ -432,6 +398,10 @@ void select_click_callback_three (MenuLayer *neutralize_keyboard, MenuIndex *cel
   }
     //Once we have 4 characters
     if (incrementer==4&&which==0){
+      strcpy(neutralization_code, neutralize_message);
+      snprintf(neutralize_message, 8191, "FA_NEUTRALIZE|%s|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, location, code_neutral);
+      LOG(neutralize_message);
+
       //Iterate though the array of hex_codes
       for (int i=0; i<index; i++){
         //Comapre the strings 
@@ -486,23 +456,33 @@ void select_click_callback_four (MenuLayer *capture_keyboard, MenuIndex *cell_in
   }
   //Once we have 4 characters
   if (incrementer_two==4&&which==0){
+
+    strcpy(capture_id,capture_code);
+
+    snprintf(capture_message, 8191, "FA_CAPTURE|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, capture_id);
+    
+    LOG(capture_message);
+    sendMessage(AppKeySendMsg,capture_message);
+
+    psleep(2000);
+
     //Iterate though the array of player_codes
-    for (int i=0; i<index; i++){
-      //Comapre the strings 
-      if (strcmp(capture_code,player_id[i]) == 0){
-        //Set to true if there is a match
-        match_two=true;
-      }
-    }//for loop
+    // for (int i=0; i<index; i++){
+    //   //Comapre the strings 
+    //   if (strcmp(capture_code,player_id[i]) == 0){
+    //     //Set to true if there is a match
+    //     match_two=true;
+    //   }
+    // }//for loop
 
-    //If a match is found print out the following else....
-    if (match_two){
-      text_layer_set_text(capture_header, "Player Captured!");
+    // //If a match is found print out the following else....
+    // if (match_two){
+    //   text_layer_set_text(capture_header, "Player Captured!");
 
-    }else{
-      text_layer_set_text(capture_header, "Unable to Capture!");
+    // }else{
+    //   text_layer_set_text(capture_header, "Unable to Capture!");
 
-    } 
+    // } 
     //Resets all of the booleans, integers, and buffers
     match_two=false;    
     memset(capture_code, 0, 10);
@@ -516,7 +496,7 @@ void select_click_callback_four (MenuLayer *capture_keyboard, MenuIndex *cell_in
   // }
 }
 
-void select_click_callback_five (MenuLayer *player_menu, MenuIndex *cell_index, void *callback_context) {
+void select_click_callback_five (MenuLayer *team_name_keyboard, MenuIndex *cell_index, void *callback_context) {
   int which = cell_index->row;
 
   if (which!=0){
@@ -537,7 +517,10 @@ void select_click_callback_five (MenuLayer *player_menu, MenuIndex *cell_index, 
     //Once we have 4 characters
     if (team_letter_incrementer>0&&which==0){
           //window_stack_pop(window_get_root_layer(window2));
+          strcpy(team_name,teamName);
+          team_registered=true;
           psleep(100);
+          window_stack_pop(true);
           window_stack_push(window2,true);
           //window_stack_pop(window_get_root_layer(window2));
     }
@@ -576,11 +559,6 @@ void window_load (Window *window){
 
   //These are all of the callbacks
   //Cal backs for each of the menu layers
-  MenuLayerCallbacks callbacksthree = {
-    .draw_row = (MenuLayerDrawRowCallback) draw_row_callback_three,
-    .get_num_rows = (MenuLayerGetNumberOfRowsInSectionsCallback) num_rows_callback_three,
-    .select_click = (MenuLayerSelectCallback) select_click_callback_three
-  };
 
   MenuLayerCallbacks callbacks = {
     .draw_row = (MenuLayerDrawRowCallback) draw_row_callback_three,
@@ -597,19 +575,6 @@ void window_load (Window *window){
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(player_input));
 
 
-  //API & SERVER CONNECTIONS HERE
-
-  // Register to be notified about outbox sent events
-  app_message_register_outbox_sent(outbox_sent_callback);
-  // Register to be notified about outbox failed events
-  app_message_register_outbox_failed(outbox_failed_callback);
-
-  app_message_register_inbox_received(in_received_handler);
-
-  app_message_register_inbox_dropped(inbox_dropped_callback);
-
-
-  sendInt(AppKeyLocation, 1);
 
 }
 
@@ -646,12 +611,6 @@ void window_load_capture_player (Window *window) {
   text_layer_set_text_alignment(capture_input, GTextAlignmentCenter);
 
 
-  MenuLayerCallbacks callbacksthree = {
-    .draw_row = (MenuLayerDrawRowCallback) draw_row_callback_three,
-    .get_num_rows = (MenuLayerGetNumberOfRowsInSectionsCallback) num_rows_callback_three,
-    .select_click = (MenuLayerSelectCallback) select_click_callback_three
-
-  };
 
   MenuLayerCallbacks callbacksfour = {
     .draw_row = (MenuLayerDrawRowCallback) draw_row_callback_three,
@@ -824,14 +783,69 @@ void window_unload_neutralize_code (Window *window){
 }
 
 //**********************************************************************//
+void window_load_hints(Window *window){
+
+  GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+
+
+  // Find the bounds of the scrolling text
+  GRect shrinking_rect = GRect(0, 0, 144, 2000);
+  char *text = "Example text that is really really really really really \
+                                really really really really really really long";
+  GSize text_size = graphics_text_layout_get_content_size(text, font, 
+                  shrinking_rect, GTextOverflowModeWordWrap, GTextAlignmentLeft);
+
+  //GRect text_bounds = bounds;
+  //text_bounds.size.h = text_size.h;
+
+  // Create the TextLayer
+  s_text_layer = text_layer_create(GRect(0, 0, 144, 230));
+  text_layer_set_overflow_mode(s_text_layer, GTextOverflowModeWordWrap);
+  text_layer_set_font(s_text_layer, font);
+  text_layer_set_text(s_text_layer, text);
+
+  // Create the ScrollLayer
+  s_scroll_layer = scroll_layer_create(GRect(0, 0, 144, 2000));
+
+  // Set the scrolling content size
+  scroll_layer_set_content_size(s_scroll_layer, text_size);
+
+  // Let the ScrollLayer receive click events
+  scroll_layer_set_click_config_onto_window(s_scroll_layer, hints_window);
+
+  // Add the TextLayer as a child of the ScrollLayer
+  scroll_layer_add_child(s_scroll_layer, text_layer_get_layer(s_text_layer));
+
+  // Add the ScrollLayer as a child of the Window
+  layer_add_child(window_get_root_layer(hints_window), scroll_layer_get_layer(s_scroll_layer));
+
+}
+
+void window_unload_hints(Window *window){
+  scroll_layer_destroy(s_scroll_layer);
+  text_layer_destroy(s_text_layer);
+
+}
 
 
 //Initialize Method
 void init() {
 
-  //Creates all of the windows
+  // Register to be notified about outbox sent events
+  app_message_register_outbox_sent(outbox_sent_callback);
+  // Register to be notified about outbox failed events
+  app_message_register_outbox_failed(outbox_failed_callback);
+
+  app_message_register_inbox_received(inbox_received_handler);
+
+  app_message_register_inbox_dropped(inbox_dropped_callback);
+
   // Open AppMessage
   app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+  
+  tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
+
+  //Creates all of the windows
   //app_message_open(inbox_size, outbox_size);
   window = window_create();
   choose_team_window=window_create();
@@ -839,6 +853,7 @@ void init() {
   neutralize_window= window_create();
   capture_window =window_create();
   getting_captured=window_create();
+  hints_window=window_create();
 
   Layer *window_layer = window_get_root_layer(window);
 
@@ -874,7 +889,12 @@ void init() {
     .unload = window_unload_capture_player
   };
 
+  WindowHandlers handlers_seven = {
+    .load = window_load_hints,
+    .unload = window_unload_hints
+  };
 
+  window_set_window_handlers (hints_window, (WindowHandlers) handlers_seven);
   window_set_window_handlers (capture_window, (WindowHandlers) handlers_six);
   window_set_window_handlers (neutralize_window, (WindowHandlers) handlers_five);
   window_set_window_handlers (window2, (WindowHandlers) handlers_four);
@@ -894,6 +914,7 @@ void deinit() {
   window_destroy(capture_window);
   window_destroy(choose_team_window);
   window_destroy(getting_captured);
+  window_destroy(hints_window);
 
 }
 
@@ -903,6 +924,5 @@ int main(void) {
   app_event_loop();
   deinit();
 }
-
 
 
