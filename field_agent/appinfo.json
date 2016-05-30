@@ -23,8 +23,8 @@
   }, 
   "capabilities": [ "location" ], 
   "appjsDebug": "false", 
-  "proxyWSSServerURL": "localhost", 
-  "proxyWSSServerPort": 12345, 
-  "targetServerURL": "localhost", 
-  "targetServerPort": 54321
+  "proxyWSSServerURL": "flume.cs.dartmouth.edu", 
+  "proxyWSSServerPort": 36023, 
+  "targetServerURL": "flume.cs.dartmouth.edu", 
+  "targetServerPort": 23383
 }
