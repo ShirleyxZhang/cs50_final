@@ -18,14 +18,13 @@
 #include <strings.h>
 #include <string.h>
 #include <math.h>
+#include <ctype.h>
 #include <arpa/inet.h>	      
 #include "../lib/counters/counters.h" 
 #include "../lib/list/list.h"
 #include "../lib/hashtable/hashtable.h"
 #include "../common/word.h" 
 #include "../common/file.h"
-//#include <gtk/gtk.h>
-  
 typedef struct codedrop {
   bool status;
   char* hexcode;
@@ -34,8 +33,8 @@ typedef struct codedrop {
 } codedrop_t;
 
 typedef struct location {
-	double latitude;
-	double longitude;
+	float latitude;
+	float longitude;
 } location_t;
 
 typedef struct team {
@@ -44,6 +43,10 @@ typedef struct team {
 	struct GA *GA;
 	bool status;
 	int active_players;
+	int total_players;
+	int claimed_codes;
+	int captured_players;
+	int captures;
 } team_t;
 
 typedef struct GA {
@@ -67,14 +70,15 @@ typedef struct FA {
 
 
 //*************function prototypes*************
-static void parse_arguments(const int argc, char *argv[]);
+static void parse_arguments(const int argc, char *argv[], bool* raw_switch);
 static void check_NULL(void* item);
 static list_t* load_codedrops(char* , int* codedrop_num);
-static location_t* new_location(double latitude, double longitude);
+static location_t* new_location(float latitude, float longitude);
 static void process_message(char* buffer, char* message[]);
 static int validateOP (char* message[]);
+static bool validate_hint(char* hint);
 static void generate_hex(char ID[], int length);
-static FA_t* create_player(char* teamname, struct sockaddr_in address, char* pebbleid, char* playername, double latitude, double longitude, list_t* playerlist);
+static FA_t* create_player(char* teamname, struct sockaddr_in address, char* pebbleid, char* playername, float latitude, float longitude, list_t* playerlist);
 static team_t* create_team(void);
 static GA_t* create_guide(char* teamname, struct sockaddr_in address,char* guideid ,char* playername) ;
 static codedrop_t* new_codedrop(void);
@@ -84,25 +88,31 @@ static bool within_radius(location_t* loc1, location_t* loc2);
 static void within_capture_area(void *arg, char *key, void *data, void *optional);
 static void get_codedrop_info(void *arg, char* key, void *data, void *optional);
 static void get_fa_info(void *arg, char* key, void *data, void *optional);
-//static void check_team_status(FA_t* found_player,bool* status,list_t* teamlist);
-//static void check_player_status(void *arg, char* key, void *data);
+static void print_list_item(void *arg, char *key, void *data, void *optional);
+static void send_hints(void *arg, char* key, void *data, void* optional);
+static void send_gameover_GA(void *arg, char* key, void *data, void* optional);
+static void send_gameover_FA(void *arg, char* key, void *data, void* optional);
+static void finish_game(void *arg, char* key, void *data, void* optional);
 
 static int nbytes;
 static int comm_sock;
 
 int main(const int argc, char *argv[])
 {
+	bool raw_switch = false;
 	//validate arguments
-	parse_arguments(argc, argv);
+	parse_arguments(argc, argv,&raw_switch);
 
 	//make list of codedrops files
 	char* codedrop_path = argv[1];
+	int totalFA = 0;
 	int codedrop_num = 0;
 	list_t* codedrop_list = load_codedrops(codedrop_path, &codedrop_num);
-	int totalFA = 0;
-
+	list_iterate(codedrop_list,print_list_item,NULL,NULL);
+	printf("%d\n",codedrop_num );
+	
 	//initialize gameID
-	int ID_LENGTH = rand()%8;
+	int ID_LENGTH = rand()%9;
 	char gameID[ID_LENGTH];
 	generate_hex(gameID, ID_LENGTH);
 
@@ -130,7 +140,7 @@ int main(const int argc, char *argv[])
     	nbytes = recvfrom(comm_sock, buf, BUFSIZE-1, 0, themp, &themlen);
 
     	if (nbytes < 0) {
-      		fprintf(stderr, " error receiving from socket");
+      		fprintf(stderr, "error receiving from socket");
     	}
     	else
     	{ 
@@ -159,8 +169,8 @@ int main(const int argc, char *argv[])
 				//validate gameId, pebbleId, teamName, and playerName. Then
 
 				if (strcmp(request,"FA_LOCATION") == 0) {
-					double latitude = atof(message[5]);
-					double longitude = atof(message[6]);
+					float latitude = atof(message[5]);
+					float longitude = atof(message[6]);
 					int status = atoi(message[7]);
 
 					if (gameid == 0) {  //new player in game
@@ -173,6 +183,7 @@ int main(const int argc, char *argv[])
 								team_t* new_team = create_team();
 								list_insert(teamlist,new_team->teamname,new_team);
 								new_team->active_players = new_team->active_players + 1;
+								new_team->active_players = new_team->total_players + 1;
 							}
 							//put new player into team struct's list of FAs
 							list_insert(found_team->FA_list, new_player->pebbleid, new_player);
@@ -186,25 +197,20 @@ int main(const int argc, char *argv[])
 					}
 					if (status == 1) {   //FA wants update
 						team_t* myteam =(team_t*)list_find(teamlist,teamname);
-						FILE* fp = fopen("FA_STATUS","w+");
-						if (fp == 0) {
-							exit(4);
-						}
 						char* guideid = myteam->GA->guideid;
 						int myfas = myteam->active_players;
 						int otherfas = totalFA - myfas;
-						fprintf(fp,"GAME_STATUS|%s|%s|%d|%d|%d",gameid,guideid,codedrop_num,myfas,otherfas);
-						char* faupdate = readline(fp);
-						if (sendto(comm_sock,faupdate, nbytes, 0, (struct sockaddr *) &them, sizeof(them)) < 0)
+						char* update = malloc(BUFSIZE);
+						sprintf(update,"GAME_STATUS|%s|%s|%d|%d|%d",gameid,guideid,codedrop_num,myfas,otherfas);
+						if (sendto(comm_sock,update, nbytes, 0, (struct sockaddr *) &them, sizeof(them)) < 0)
 								fprintf(stderr,"error sending in datagram socket");
-						fclose(fp);
-						free(faupdate);
+						free(update);
 					}
 				}
 
 				else if (strcmp(request,"FA_NEUTRALIZE") == 0) {
-					double latitude = atof(message[5]);
-					double longitude = atof(message[6]);
+					float latitude = atof(message[5]);
+					float longitude = atof(message[6]);
 					char* codeid = message[7];
 					location_t* player_loc = new_location(latitude,longitude);
 					codedrop_t* cd;
@@ -212,9 +218,16 @@ int main(const int argc, char *argv[])
 						if ( cd->teamname == NULL &&
 							within_radius(cd->location,player_loc)) {  //if not neutralized and within distance
 							cd->teamname = teamname; // current player's team claims it
+							team_t* neutralized_team = (team_t*)list_find(teamlist,teamname);
+							neutralized_team->claimed_codes = neutralized_team->claimed_codes + 1;
 							//send success notification
+							char* response = malloc(BUFSIZE);
+							char* rescode = "MI_NEUTRALIZED";
+							char* humanresponse = "successfully neutralized a codedrop!";
+							sprintf(response, "GS_RESPONSE|%s|%s|%s", gameID, rescode, humanresponse);
 							if (sendto(comm_sock,"MI_NEUTRALIZED", nbytes, 0, (struct sockaddr *) &them, sizeof(them)) < 0)
 								fprintf(stderr,"error sending in datagram socket");
+							free(response);
 							codedrop_num--;
 						}
 					} 
@@ -235,21 +248,25 @@ int main(const int argc, char *argv[])
 							if (capture_player(found_player)){
 								team_t* captured_pteam = list_find(teamlist,teamname);
 								captured_pteam->active_players = captured_pteam->active_players - 1;
+								captured_pteam->captured_players = captured_pteam->captured_players + 1;
 								totalFA--;
 								if (captured_pteam->active_players == 0)
 									captured_pteam->status = false;
+								team_t* curr_team = (team_t*)list_find(teamlist,teamname);
+								curr_team->captures = curr_team->captures +1;
 								//if successful notify capturing player and capture player
-								if (sendto(comm_sock,"MI_CAPTURE_SUCCESS", nbytes, 0, (struct sockaddr *) &them, sizeof(them)) < 0)
+								char* response = malloc(BUFSIZE);
+								char* rescode = "MI_CAPTURE_SUCCESS";
+								char* humanresponse = "successfully captured!";
+								sprintf(response, "GS_RESPONSE|%s|%s|%s", gameID, rescode, humanresponse);
+								if (sendto(comm_sock,response, nbytes, 0, (struct sockaddr *) &them, sizeof(them)) < 0)
 								fprintf(stderr,"error sending in datagram socket");
+								rescode = "MI_CAPTURED";
+								humanresponse = "You have been captured!";
+								sprintf(response, "GS_RESPONSE|%s|%s|%s", gameID, rescode, humanresponse);
 								if (sendto(comm_sock,"MI_CAPTURED", nbytes, 0, (struct sockaddr *) &(found_player->address), sizeof(found_player->address)) < 0)
 								fprintf(stderr,"error sending in datagram socket");
-								//shouldnt need anymore------
-								// //check status of rest of captured palyers teammates, amke team inactive is all have been captured
-								// bool active = false;
-								// check_team_status(found_player,&active); //check status of all FAs in the team
-								// if (!active)      // if all are inactive- set team to inactive.
-								// 	(list_find(teamlist,teamname))->status = false;
-								//-------
+								free(response);
 							}
 						}
 					}
@@ -280,8 +297,12 @@ int main(const int argc, char *argv[])
 						}
 						else {
 							if(strcmp(((GA_t*)list_find(guidelist,guideid))->teamname, teamname) != 0){
-								if (sendto(comm_sock,"MI_ERROR_INVALID_TEAMNAME", nbytes, 0, (struct sockaddr *) &them, sizeof(them)) < 0)
-								fprintf(stderr,"error sending in datagram socket");
+								char* rescode = "MI_ERROR_INVALID_TEAMNAME";
+								char* humanresponse = "invalid teamname";
+								char* response = malloc(BUFSIZE);
+								sprintf(response, "GS_RESPONSE|%s|%s|%s", gameID, rescode, humanresponse);
+								if (sendto(comm_sock,response, nbytes, 0, (struct sockaddr *) &them, sizeof(them)) < 0)
+									fprintf(stderr,"error sending in datagram socket");
 							}
 
 						}
@@ -290,35 +311,37 @@ int main(const int argc, char *argv[])
 					if (curr_guide != NULL)
 						curr_guide->contact = time(NULL);
 					if (status == 1) {  //GA wants update
-						FILE* fp = fopen("GA_STATUS","w+");
-						if (fp == 0) {
-							exit(4);
-						}
-						fprintf(fp,"GA_STATUS|%s|",gameid);
-						list_iterate(playerlist,get_fa_info,fp, NULL);   //write info for each fa to game status file
-						fprintf(fp, "|");
-						list_iterate(codedrop_list,get_codedrop_info,fp, NULL); //write info for each codedrop to file
-						char* gamestatus = readline(fp); 				  // get the game status from file 
-						fclose(fp);
-						if (sendto(comm_sock,gamestatus, nbytes, 0, (struct sockaddr *) &them, sizeof(them)) < 0)
+						char* update = malloc(BUFSIZE);
+						sprintf(update,"GA_STATUS|%s|",gameID);
+
+						list_iterate(playerlist,get_fa_info,update, NULL);   //write info for each fa to game status file
+						sprintf(update, "%s|",update);
+						list_iterate(codedrop_list,get_codedrop_info,update, NULL); //write info for each codedrop to file
+						if (sendto(comm_sock,update, nbytes, 0, (struct sockaddr *) &them, sizeof(them)) < 0)
 								fprintf(stderr,"error sending in datagram socket");
-						free(gamestatus);
+						fprintf(stderr, "%s\n", update);
+						free(update);
 					}
 				}
 
 				else if (strcmp(request,"GA_HINT") == 0) {
 					char* pebbleid = message[5];
-					//char* hint = message[6];
-					if (strcmp(pebbleid,"*")== 0) {
-						//send to all fas on th guide's 
-						printf("still need to do send to all players on ga team\n");
+					char* hint = message[6];
+					if (strcmp(pebbleid,"*") == 0) {
+						//send to all fas on the guide's
+						team_t* found_team = (team_t*)list_find(teamlist,teamname);
+						if (validate_hint(hint)) {
+							list_iterate(found_team->FA_list,send_hints, buf, NULL);
+						}
 					}
 					else {
-						//verify this pebble is on ga's team
-						//verify this message is valid
-						struct sockaddr_in address = ((FA_t*)list_find(playerlist,pebbleid))->address;
-						if (sendto(comm_sock,buf, nbytes, 0, (struct sockaddr *) &address, sizeof(address)) < 0)
-								fprintf(stderr,"error sending in datagram socket");
+						//verify this pebble is on ga's team and a valid message
+						team_t* found_team = (team_t*)list_find(teamlist,teamname);
+						if (list_find(found_team->FA_list,pebbleid) != NULL && validate_hint(hint)) {
+							struct sockaddr_in address = ((FA_t*)list_find(playerlist,pebbleid))->address;
+							if (sendto(comm_sock,buf, nbytes, 0, (struct sockaddr *) &address, sizeof(address)) < 0)
+									fprintf(stderr,"error sending in datagram socket");
+						}
 					}
 					GA_t* curr_guide = list_find(guidelist,guideid);
 					if (curr_guide != NULL)
@@ -328,14 +351,24 @@ int main(const int argc, char *argv[])
 
 			// invalid op
 			else {
-				if (sendto(comm_sock,"MI_ERROR_INVALID_OPCODE", nbytes, 0, (struct sockaddr *) &them, sizeof(them)) < 0)
-									fprintf(stderr,"error sending in datagram socket");
+				char* rescode = "MI_ERROR_INVALID_OPCODE";
+				char* humanresponse = "invalid opcode";
+				char* response = malloc(17+strlen(gameID)+strlen(rescode)+strlen(humanresponse));
+				sprintf(response, "GS_RESPONSE|%s|%s|%s", gameID, rescode, humanresponse);
+				if (sendto(comm_sock,response, nbytes, 0, (struct sockaddr *) &them, sizeof(them)) < 0)
+					fprintf(stderr,"error sending in datagram socket");
 				
 			}
 	  	}
 	  	if (codedrop_num == 0){
-				printf("end!");//end game
-			}
+			char* notice = malloc(BUFSIZE);
+	  		char* opcode = "GAME_OVER";
+			sprintf(notice, "%s|%s|",opcode,gameID);
+			list_iterate(teamlist,finish_game,notice,NULL);
+			list_iterate(playerlist,send_gameover_FA,notice,NULL);
+			list_iterate(guidelist,send_gameover_GA,notice,NULL);
+			free(notice);
+		}
 	}
   close(comm_sock);
 	
@@ -356,6 +389,10 @@ static team_t* create_team()
 	new_team->GA = NULL;
 	new_team->status = true;
 	new_team->active_players = 0;
+	new_team->total_players = 0;
+	new_team->claimed_codes = 0;
+	new_team->captured_players = 0;
+	new_team->captures = 0;
 	return new_team;
 
 }
@@ -382,7 +419,7 @@ static GA_t* create_guide(char* teamname,struct sockaddr_in address,char* guidei
 * Creates new FA and returns pointer to new field agent
 */
 static FA_t* create_player(char* teamname, struct sockaddr_in address, char* pebbleid, char* playername,
- double latitude, double longitude, list_t* playerlist)
+ float latitude, float longitude, list_t* playerlist)
 {
 	FA_t *new_FA = malloc(sizeof(FA_t));
 	check_NULL(new_FA);
@@ -407,7 +444,7 @@ static FA_t* create_player(char* teamname, struct sockaddr_in address, char* peb
 /*********new_location()*****
 * Creates a new location struct, containinf given latitude and longitude. returns pointer to the new location.
 */
-static location_t* new_location(double latitude, double longitude)
+static location_t* new_location(float latitude, float longitude)
 {
 	location_t *location = malloc(sizeof(location_t));
 	check_NULL(location); 
@@ -437,8 +474,7 @@ static codedrop_t* new_codedrop()
 static void generate_hex(char ID[], int length)
 {
 	const char *hex_digits = "0123456789ABCDEF";
-    int i;
-    for( i = 0 ; i < 8; i++ ) {
+    for( int i = 0 ; i < length; i++ ) {
       ID[i] = hex_digits[ ( rand() % 16 ) ];
     }
 }
@@ -448,13 +484,23 @@ static void generate_hex(char ID[], int length)
 * and game server port number is the one assigned to team lapis
 */
 
-static void parse_arguments(const int argc, char *argv[])
+static void parse_arguments(const int argc, char *argv[], bool* raw_switch)
  {
  	// If argument count is wrong exit
- 	if (argc != 3) {
+ 	if (argc !=3 && argc!=4) {
  		fprintf(stderr, "Wrong number of arguemnts. usage: /gameserver codeDropPath GSport \n");
  		exit(1);
  	}
+
+ 	// int c;
+ 	// if((c = getopt(argc,argv,"v")) != -1){
+ 	// 	if (c == "v")
+ 	// 		*raw_switch = true;
+ 	// 	else{
+ 	// 		fprintf(stderr,"invalid switch %c used\n",c);
+ 	// 		exit(1);
+ 	// 	}
+ 	// }
 
  	// If codedrop file cannot be opened, exit
  	char* codedrop_file = argv[1];
@@ -533,26 +579,27 @@ static list_t* load_codedrops(char* codedrop_path, int* codedrop_num)
 	//for each line in this file create a new codedrop struct
 	char* codedrop_info;
 	while((codedrop_info = readline(fp)) != NULL) {
-		double latitude = atof(strtok(codedrop_info, ","));
-		double longtitude = atof(strtok(NULL, ","));
+		printf("here about to make codedrop %d\n",*codedrop_num);
+		float latitude = atof(strtok(codedrop_info, ","));
+		float longtitude = atof(strtok(NULL, ","));
 		char* hexcode = strtok(NULL, ",");
 		location_t *location = new_location(latitude,longtitude);//new location struct for this codedrop
 		codedrop_t* codedrop = new_codedrop();					//initialize new codedrop with correct information
 		codedrop->hexcode = hexcode;
 		codedrop->location = location;
 		list_insert(codedrop_list, hexcode, codedrop);			// add new code drop to list of codedrops
-		codedrop_num++;
+		*codedrop_num = (*codedrop_num + 1);
   	}
   	free(codedrop_info);
   	return codedrop_list;
 }
 
 //  ********print_list_item*******
-// void print_list_item(void *arg, char *key, void *data) {
-// 	print("%s",key);
-// 	codedrop_t* current_codedrop= (codedrop_t*)data;
-// 	print(current_codedrop->longitude,current_codedrop->latitude);
-// }
+static void print_list_item(void *arg, char *key, void *data, void* optional) {
+	printf("%s",key);
+	codedrop_t* current_codedrop= (codedrop_t*)data;
+	printf("long:%.13f lat:%.13f\n",current_codedrop->location->longitude,current_codedrop->location->latitude);
+}
 
 /**************** socket_setup ****************/
 /* All the ugly work of preparing the datagram socket;
@@ -638,25 +685,6 @@ static bool capture_player(FA_t* found_player)
 	return false;
 }
 
-/******check_team_status******
-* Turns a team inactive if all FAs players are inactive
-*/
-// static void check_team_status(FA_t* found_player,bool* status,list_t* teamlist)
-// {
-// 	list_iterate(teamlist->FA_list,check_player_status,status);
-// }
-
-/*******check_player_status*****
-* checks a player's status. If a player is active, changes boolean to true
-*/
-// static void check_player_status(void *arg, char* key, void *data)
-// {
-// 	bool* team_status = (bool*)arg;
-// 	FA_t* curr_FA= (FA_t*)data;
-// 	if (curr_FA->status != 2)
-// 			team_status = true;
-// }
-
 /*******get_fa_info********
 * Finds the information needed for a game status
 *
@@ -664,7 +692,7 @@ static bool capture_player(FA_t* found_player)
 static void get_fa_info(void *arg, char* key, void *data, void* optional)
 {
 	FA_t* curr_fa = (FA_t*)data;
-	FILE* fp= (FILE*)arg;
+	char* update=(char*)arg;
 	char* curr_status;
 	if (curr_fa->status != 2) {
 		curr_status = "active";
@@ -673,7 +701,7 @@ static void get_fa_info(void *arg, char* key, void *data, void* optional)
 		curr_status = "captured";
 	}
 	int timesincecontact = time(NULL) - curr_fa->contact;
-	fprintf(fp,"%s,%s,%s,%s,%f,%f,%d:",key,curr_fa->teamname,curr_fa->name,curr_status,curr_fa->location->latitude,curr_fa->location->longitude,timesincecontact);
+	sprintf(update,"%s%s,%s,%s,%s,%f,%f,%d:",update,key,curr_fa->teamname,curr_fa->name,curr_status,curr_fa->location->latitude,curr_fa->location->longitude,timesincecontact);
 	
 }
 
@@ -684,17 +712,96 @@ static void get_fa_info(void *arg, char* key, void *data, void* optional)
 static void get_codedrop_info(void *arg, char* key, void *data, void* optional)
 {
 	codedrop_t* cd = (codedrop_t*)data;
-	FILE* fp= (FILE*)arg;
-	fprintf(fp,"%s,%f,%f,",cd->hexcode,cd->location->latitude,cd->location->longitude);
+	char* update= (char*)arg;
+	sprintf(update,"%s:%s,%f,%f,",update,cd->hexcode,cd->location->latitude,cd->location->longitude);
 	if (cd->teamname == NULL) {
-		fprintf(fp,"NONE:");
+		sprintf(update,"%sNONE",update);
 	}
 	else {
-		fprintf(fp,"%s:",cd->teamname);
+		sprintf(update,"%s%s:",update,cd->teamname);
 	}
+}
+/*********validate_hint()********
+* Makes sure the hint from a GA is proper. i.e. 1-140 printable characters
+*
+*/
+static bool validate_hint(char* hint)
+{
+	if (strlen(hint) < 0 || strlen(hint) > 140)
+		return false;
+	for (int i = 0 ; i < strlen(hint); i++){
+		if (!isprint(hint[i]))
+			return false;
+	}
+	return true;
+
 }
 
 
+/*******send_hints()*****
+* itemfunc for list iterate to send hints to all fas on a team
+*/
+static void send_hints(void *arg, char* key, void *data, void* optional)
+{
+	char* hint = (char*)arg;
+	FA_t* myfa= (FA_t*)data;
+	if (sendto(comm_sock,hint,nbytes, 0,(struct sockaddr *) &(myfa->address), sizeof(myfa->address) < 0))
+		fprintf(stderr,"error sending in datagram socket");
+}
 
+
+/*******finish_game()****
+* Helps create the string that contains the wanted info of all team at the end of the game
+* to send in the GAME_OVER message
+*/
+static void finish_game(void *arg, char* key, void *data, void* optional)
+{
+	char* info = (char*)arg;
+	team_t* curr_team = (team_t*)data;
+	sprintf(info,"%s:%s,%d,%d,%d,%d",info,key,curr_team->total_players, curr_team->captures, curr_team->captured_players, curr_team->claimed_codes);
+}
+
+/*****send_gameover_FA()******
+* Send game over status to an GA agent
+* used by list iterator to send notice to all agents
+*/
+static void send_gameover_FA(void *arg, char* key, void *data, void* optional)
+{
+	char* notice = (char*)arg;
+	FA_t* fa = (FA_t*)data;
+	if (sendto(comm_sock,notice,nbytes, 0, (struct sockaddr *) &(fa->address), sizeof(fa->address) < 0))
+		fprintf(stderr,"error sending in datagram socket");
+}
+
+/*****send_gameover_GA()******
+* Send game over status to an GA agent
+* used by list iterator to send notice to all agents
+*/
+static void send_gameover_GA(void *arg, char* key, void *data, void* optional)
+{
+	char* notice = (char*)arg;
+	GA_t* ga = (GA_t*)data;
+	if (sendto(comm_sock,notice,nbytes, 0, (struct sockaddr *) &(ga->address), sizeof(ga->address) < 0))
+		fprintf(stderr,"error sending in datagram socket");
+
+}
+
+// static void logfile(char* log_this, bool raw)
+// {
+// 	FILE *logp;
+//   	if ((logp = fopen("../log/gameserver.log", "w")) == NULL) {
+//     	printf("could not open log file");
+//     	exit(4);
+//   	}
+//   	else if (!raw) {
+//     	fprintf(logp, "%s",log_this);
+//   	}
+//   	else {
+//     	// user input -v, so we also give them the time of each action
+//     	time_t myTime = time(NULL);
+//     	char* timeString = ctime(&myTime);
+//     	fprintf(logp, "%s %s", timeString,log_this);
+//   	}
+// }
 
 
