@@ -16,8 +16,8 @@ typedef struct bag bag_t;
 
 /**************** functions ****************/
 
-/* void */
-/* bag_delete(bag_t *bag); */
+void
+bag_delete(bag_t *bag);
 
 /* create a new empty bag
  * return NULL if there are any errors

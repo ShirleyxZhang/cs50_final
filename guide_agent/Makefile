@@ -17,11 +17,10 @@ guide: guide.o
 # 	gcc $(CFLAGS)  $(GTKFLAGS) guide.o ../common/file.o ../lib/list/list.o ../lib/bag/bag.o ../lib/counters/counters.o -o guide
 	 gcc $(CFLAGS) -o guide guide.c ../common/file.c ../common/file.h ../lib/list/list.h ../lib/list/list.c ../lib/bag/bag.h ../lib/bag/bag.c ../lib/counters/counters.h
 
-#guide.o: guide.c 
 
 ../common/file.o: ../common/file.c ../common/file.h
 
-../lib/list/list.o: ../lib/list/list.c ../lib/list/list.h
+../lib/list/list.o: ../lib/list/list.h
 
 ../lib/bag/bag.o: ../lib/bag/bag.h ../lib/bag/bag.c
 

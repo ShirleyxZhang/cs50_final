@@ -135,12 +135,13 @@ bag_extract(bag_t *bag)
       free(current);
       bag->head = NULL;
     }
-    
-    // free the memory previously allocated to the node we are extracting
-    free(currentParent->next);
+    else {
+      // free the memory previously allocated to the node we are extracting
+      free(currentParent->next);
 
-    // set the "next" pointer of the node before it to NULL
-    currentParent->next = NULL;
+      // set the "next" pointer of the node before it to NULL
+      currentParent->next = NULL;
+    }
     
     return currentData; // return the data that we temporarily stored
   }
@@ -149,22 +150,19 @@ bag_extract(bag_t *bag)
 
 
 
-/* void */
-/* bag_delete(bag_t *bag) */
-/* { */
-/*   if (bag != NULL) { */
-/*     if (bag->head != NULL) { */
+void
+bag_delete(bag_t *bag)
+{
+  if (bag != NULL) {
+    if (bag->head != NULL) {
 
-/*       bagnode_t *current = bag->head; */
-/*       while (current != NULL) { */
-/*         bagnode_t *next = current->next; */
-/* 	if (bag->itemdelete != NULL) { */
-/* 	  (*bag->itemdelete)(current->data); */
-/* 	} */
-/* 	free(current); */
-/* 	current = next; */
-/*       } */
-/*     } */
-/*     free(bag); */
-/*   } */
-/* } */
+      bagnode_t *current = bag->head;
+      while (current != NULL) {
+        bagnode_t *next = current->next;
+	free(current);
+	current = next;
+      }
+    }
+    free(bag);
+  }
+}
