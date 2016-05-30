@@ -76,6 +76,7 @@ void printPebbleIDs(void *arg, char *key, void *data, void *option);
 void getNumAgents(void *arg, char *key, void *data, void *option);
 void deletefunc(void *data);
 bag_t *getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch);
+bag_t *getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch);
 int printGameOver(char *gameID, FILE *fp, int logSwitch);
 int sendStatusRequest(char *gameID, char *guideID, char *teamName,
             char *playerName, int comm_sock, const struct sockaddr *gsp);
@@ -226,14 +227,23 @@ int main(int argc, char *argv[]) {
 
 	// don't send a hint if handleStdin returned NULL; that means that
 	// there are no active agents on the guide's team to send hints to
-	if (strcmp(idAndHint, "NULL") != 0) {
+	if (strcmp(idAndHint, "NULL") != 0 && strcmp(idAndHint, "140") != 0) {
+	  
 	  // If there were any problems getting the ID and hint, or if the user
 	  // chose to exit the program using ^D, break fromt the while loop 
 	  if (strcmp(idAndHint, "EOF") == 0)
 	    break;
 
+	  if (strcmp(idAndHint, "blank") == 0)
+	    printf("\n");
+
+	  // If handleStdin returned "0", that means that the AF_INET did
+	  // not match
+	  else if (strcmp(idAndHint, "0") == 0)
+	    printf("Could not send the message to the Game Server.\n");
+
 	  // Check to make sure we've joined a game that we can send hints to
-	  if ((gameID != NULL)) {
+	  else if ((gameID != NULL)) {
 
 	    // Malloc space for a hint to send
 	    char *sendHint = malloc(13 + strlen(gameID) + strlen(guideID) +
@@ -260,15 +270,16 @@ int main(int argc, char *argv[]) {
 	    else {
 	      printf("Your hint was sent to the game server.\n");
 	      free(sendHint);
-	    }		
+	    }
+	    free(idAndHint);
 	  }
 	  else {
 	    // gameID is NULL, which means we haven't joined a game yet
 	    printf("You can't send hints until you've joined the game!\n");
 	    fflush(stdout);
-	  } 
+	    free(idAndHint);
+	  }
 	}
-	free(idAndHint);
       }
 	  
       if (FD_ISSET(comm_sock, &rfds)) {
@@ -284,6 +295,7 @@ int main(int argc, char *argv[]) {
       }
     }
   }
+  // free all memory we allocated before exiting
   list_delete(FAList);
   free(guideID);
   if (gameID != NULL)
@@ -299,9 +311,7 @@ int main(int argc, char *argv[]) {
 
 
 
-
 /**************************** createSocket ***************************/
-
 /* Parse arguments and set up socket
  * Returns integer returned by socket() function
  */
@@ -489,7 +499,25 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	  fprintf(fp, "Received an invalid message and ignored it.\n");
 	  return 1;
 	}
+	
+	// Check to make sure ID is 8 characters or fewer 
+	if (strlen(ID) > 8) {
+	  if (logSwitch == 1)
+	    printTime(fp);
+	  fprintf(fp, "Received an invalid message and ignored it.\n");
+	  return 1;
+	}
 
+	// Check to make sure the ID consists only of hexadecimal digits
+	for (int i = 0; i < strlen(ID); i++) {
+	  if (isxdigit(ID[i]) == 0) {
+	    if (logSwitch == 1)
+	      printTime(fp);
+	    fprintf(fp, "Received an invalid message and ignored it.\n");
+	    return 1;
+	  }
+	}
+	
 	/***** receipt of GAME_STATUS message *****/
 	
 	if (strcmp(OPCODE, "GAME_STATUS") == 0) {
@@ -542,193 +570,167 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	  if (FABag == NULL)
 	    return 1;
 
+	  // code drop struct to store the strtok'd code drop info in
+	  //codedrop_t *cd;
+
+	  // Bag to hold strtok'd code drop strings
+	  bag_t *codedropBag = bag_new();
+
+	  // strtok the first code drop field and check if it's NULL
+	  char *codedrop = strtok(AllCodedrops, ":");
+	  if (codedrop == NULL) {
+	    if (logSwitch == 1)
+	      printTime(fp);
+	    fprintf(fp, "Received an invalid message and ignored it.\n");
+	    return 1;	    
+	  }
+	  bag_insert(codedropBag, codedrop);
+
+	  // Strtok all of the colon-separated codedrop fields and
+	  // put the string in the codedropBag  
+	  while ((codedrop = strtok(NULL, ":")) != NULL) {
+	    bag_insert(codedropBag, codedrop);
+	  }
+
+	  // Call getCodedrops to create a bag of codedrop structs
+	  bag_t *CDBag = getCodedrops(codedropBag, fp, logSwitch);
+
+	  // If the pointer is NULL, that means there was a problem parsing
+	  // somewhere along the line during the getCodedrops function
+	  if (CDBag == NULL) {	    
+	    freeBag(FABag);
+	    bag_delete(FABag);
+	    return 1;
+	  }
+	  
+	  // gameID is NULL if we have not yet recieved a message from the
+	  // game server
+	  if (*gameID == NULL) {
+	    // gameID takes on the value of the gameID field of the first
+	    // valid message it gets from the game server
+	    *gameID = malloc(strlen(ID) + 1);
+	    strcpy(*gameID, ID);
+	    fprintf(fp, "Guide agent received first message from game ");
+	    fprintf(fp, "server. The ID of this game is %s\n", *gameID);
+	    printf("Joined a game!\n");
+	  }
+	  else if (strcmp(ID, *gameID) != 0) {
+	    // the message we just received contains a different gameID
+	    fprintf(fp, "Guide agent received a message from a different ");
+	    fprintf(fp, "game and ignored it. ");
+	    fprintf(fp, "The ID of this game was %s\n", ID);
+	    return 1;
+	  }
+
+	  /***** Message has been validated; time to start printing *****/
+	  printf("%s:\n", OPCODE);
+	  printf("Game ID is %s\n", ID);
+	  printf("Agents:\n");
+
+	  FA_t *myFA;
+
+	  // Extract all the FA structs from the FABag, and print the
+	  // information we stored in them
+	  while ((myFA = bag_extract(FABag)) != NULL) {
+		      
+	    printf("   Agent %s from team %s: pebble ID is %s.\n",
+		   myFA->name, myFA->teamname, myFA->pebbleid);
+	    
+	    if (myFA->capture == true)
+	      printf("     %s has been captured and is no longer active.\n",
+		     myFA->name);
+	    else
+	      printf("     %s has not been captured and is still active.\n",
+		     myFA->name);
+
+	    printf("     Last known latitude: %s. ", myFA->latitude);
+	    printf("Last known longitude is :%s\n", myFA->longitude);
+	    printf("     Seconds since last contact is %s.\n", myFA->contact);
+
+	    // Insert the FA structs into the list for later access when
+	    // printing the pebbleID's for the Guide Agent to choose from
+	    list_insert(list, myFA->pebbleid, myFA);
+	  }
+	  bag_delete(FABag);
+		      
+	  printf("Code drops:\n");
+
 	  codedrop_t *cd;
 
-	  if (AllCodedrops == NULL)
-	    fprintf(fp, "There was something wrong with the FA field in the message from the\
- game server.\n");
-	  else {
-
-	    bag_t *codedropBag = bag_new();
-
-	    char *codedrop = strtok(AllCodedrops, ":");
-
-	    if (codedrop == NULL) {
-	      // list is empty?
-	      fprintf(fp, "There are currently no codedrops\n");
-	    }
-	    else {
-	      bag_insert(codedropBag, codedrop);
-
-	      while ((codedrop = strtok(NULL, ":")) != NULL) {
-		bag_insert(codedropBag, codedrop);
-	      }
-
-	      bag_t *CDBag = bag_new();
-		      
-	      while ((codedrop = bag_extract(codedropBag)) != NULL) {
-
-		cd = malloc(sizeof(codedrop_t));
-		if (cd == NULL) {
-		  printf("Error locating memory.\n");
-		  bag_delete(FABag);
-		  bag_delete(codedropBag);
-		  bag_delete(CDBag);
-		  return 1;
-		}
-
-		char *codeID = strtok(codedrop, ", ");
-		if (codeID == NULL) {
-		  if (logSwitch == 1)
-		    printTime(fp);
-		  fprintf(fp, "Received an invalid message and ignored it.\n");
-		  free(cd);
-		  bag_delete(FABag);
-		  bag_delete(codedropBag);
-		  bag_delete(CDBag);
-		  return 1;
-		}
-		cd->hexcode = codeID;
-
-		char* lat = strtok(NULL, ", ");
-		if (lat == NULL) {
-		  if (logSwitch == 1)
-		    printTime(fp);
-		  fprintf(fp, "Received an invalid message and ignored it.\n");
-		  free(cd);
-		  bag_delete(FABag);
-		  bag_delete(codedropBag);
-		  bag_delete(CDBag);
-		  return 1;
-		}
-		cd->latitude = lat;
-
-		char* Long = strtok(NULL, ", ");
-		if (Long == NULL) {
-		  if (logSwitch == 1)
-		    printTime(fp);
-		  fprintf(fp, "Received an invalid message and ignored it.\n");
-		  free(cd);
-		  bag_delete(FABag);
-		  bag_delete(codedropBag);
-		  bag_delete(CDBag);
-		  return 1;
-		}
-		cd->longitude = Long;
-
-		char *neutralizingTeam = strtok(NULL, ", ");
-		if (neutralizingTeam == NULL) {
-		  if (logSwitch == 1)
-		    printTime(fp);
-		  fprintf(fp, "Received an invalid message and ignored it.\n");
-		  free(cd);
-		  bag_delete(FABag);
-		  bag_delete(codedropBag);
-		  bag_delete(CDBag);
-		  return 1;
-		}
-		cd->teamname = neutralizingTeam;
-
-		bag_insert(CDBag, cd);
-	      }
-
-	      bag_delete(codedropBag);
-	      // gameID is NULL if we have not yet recieved a message from the
-	      // game server
-	      if (*gameID == NULL) {
-		// gameID takes on the value of the gameID field of the first
-		// message it gets from the game server
-		*gameID = malloc(strlen(ID) + 1);
-		strcpy(*gameID, ID);
-		fprintf(fp, "Guide agent received first message from game server. The ID of this game is %s\n", *gameID);
-		printf("Joined a game!\n");
-	      }
-	      else if (strcmp(ID, *gameID) != 0) {
-		// the message we just received contains a different gameID
-		fprintf(fp, "Guide agent received a message from a different game and ignored it. The \
-ID of this game was %s\n", ID);
-		return 1;
-	      }
-
-	      printf("%s:\n", OPCODE);
-	      printf("Game ID is %s\n", ID);
-	      printf("Agents:\n");
-
-	      FA_t *myFA;
-
-	      while ((myFA = bag_extract(FABag)) != NULL) {
-		      
-		printf("   Agent %s from team %s: pebble ID is %s.\n", myFA->name, myFA->teamname, myFA->pebbleid);
-		if (myFA->capture == true)
-		  printf("     %s has been captured and is no longer active.\n", myFA->name);
-		else
-		  printf("     %s has not been captured and is still active.\n", myFA->name);
-
-		printf("     Last known latitude: %s. Last known longitude is :%s\n", myFA->latitude, myFA->longitude);
-		printf("     Seconds since last contact is %s.\n", myFA->contact);
-
-		list_insert(list, myFA->pebbleid, myFA);
-	      }
-	      bag_delete(FABag);
-		      
-	      printf("Code drops:\n");
-
-	      codedrop_t *cd;
-
-	      while((cd = bag_extract(CDBag)) != NULL) {
-		printf("   Code drop %s: latitude is %s, longitude is %s. ", cd->hexcode, cd->latitude, cd->longitude);
-		if (strcmp(cd->teamname, "NONE") == 0)
-		  printf("Has not yet been neutralized.\n");
-		else
-		  printf("Neutralized by %s.\n", cd->teamname);
-		fflush(stdout);
-		free(cd);
-	      }
-	      bag_delete(CDBag);
-	    }
-	  }  		    
+	  // Extract all the codedrop structs from the CDBag, and print the
+	  // information we stored in them
+	  while((cd = bag_extract(CDBag)) != NULL) {
+	    
+	    printf("   Code drop %s: ", cd->hexcode);
+	    printf("latitude is %s, ", cd->latitude);
+	    printf("longitude is %s. ", cd->longitude);
+	    if (strcmp(cd->teamname, "NONE") == 0)
+	      printf("Has not yet been neutralized.\n");
+	    else
+	      printf("Neutralized by %s.\n", cd->teamname);
+	    fflush(stdout);
+	    free(cd);
+	  }
+	  bag_delete(CDBag);
+   	}    
 	
+	/***** OPCODE is GAME_OVER *****/
 	
-      
-	}    
-	// else if OPCODE is GAME_OVER
 	else if (strcmp(OPCODE, "GAME_OVER") == 0) {
 	  
 	  if (*gameID == NULL) {
+	    // We should ignore this message since the Guide Agent has not
+	    // joined a game yet.
 	    if (logSwitch == 1) 
 	      printTime(fp);
-	    fprintf(fp,"Guide agent received game over message before joining a game. Message was therefore ignored.\n");
-	    //ignore; we haven't even goined a game yet
+	    fprintf(fp,"Guide agent received game over message before ");
+	    fprintf(fp, "joining a game. Message was therefore ignored.\n");
 	  }
 	  else if (strcmp(ID, *gameID) != 0) {
+	    // We recieved a message from a different game. Ignore it.
 	    if (logSwitch == 1) 
 	      printTime(fp);
-	    fprintf(fp, "Guide agent received a message from a different game and ignored it. The ID of this game was %s\n", ID);
+	    fprintf(fp, "Guide agent received a message from a different ");
+	    fprintf(fp, "game and ignored it. ");
+	    fprintf(fp, "The ID of this game was %s\n", ID);
 	  }
 	  else {
+	    // Print the statistics for the game. If it returns 0, the message
+	    // was correctly formatted. Return 0 so we can exit the program.
 	    if(printGameOver(ID, fp, logSwitch) == 0)
 	      return 0;
 	  }
 	}
 	else if (strcmp(OPCODE, "GS_RESPONSE") == 0) {
 	  if (gameID == NULL) {
+	    // Ignore this message because the guide agent has not yet joined
+	    // the game, but log what happened.
 	    if (logSwitch == 1) 
 	      printTime(fp);
-	    fprintf(fp, "Guide agent received a GS_RESPONSE message before joining the game and ignored it.\n");
+	    fprintf(fp, "Guide agent received a GS_RESPONSE message before ");
+	    fprintf(fp, "joining the game and ignored it.\n");
 	  }
 	  else if (strcmp(ID, *gameID) != 0) {
+	    // Message is from a different game; ignore it
 	    if (logSwitch == 1)
 	      printTime(fp);
-	    fprintf(fp, "Guide agent received a message from a game with a different game ID and ignored it.\n");
+	    fprintf(fp, "Guide agent received a message from a game with a ");
+	    fprintf(fp, "different game ID and ignored it.\n");
 	  }
+
+	  // respCode is the field in the message after the game ID that tells
+	  // the Guide Agent which error they made.
 	  char *respCode = strtok(NULL, "|");
 	  if (respCode == NULL) {
 	    if (logSwitch == 1) {
 	      printTime(fp);
 	      fprintf(fp, "%s\n", buf);
 	    }
-	    fprintf(fp, "Guide agent received an ivalid message from the game server and ignored it.\n");
+	    fprintf(fp, "Guide agent received an ivalid message from the ");
+	    fprintf(fp, "game server and ignored it.\n");
 	  }
+
+	  /*** Log the different MI_ERROR codes ***/
 	  
 	  if (strcmp(respCode, "MI_ERROR_INVALID_OPCODE") == 0) {
 	    if (logSwitch == 1) {
@@ -744,101 +746,156 @@ ID of this game was %s\n", ID);
 	      printTime(fp);
 	      fprintf(fp, "MI_ERROR_INVALID_GAME_ID: ");
 	    }
-	    fprintf(fp, "Guide agent sent an invalid game ID to the game server.\n");
+	    fprintf(fp, "Guide agent sent an invalid game ID to the game ");
+	    fprintf(fp, "server.\n");
 	  }
 	  else if (strcmp(respCode, "MI_ERROR_INVALID_TEAMNAME") == 0) {
 	    if (logSwitch == 1) {
 	      printTime(fp);
 	      fprintf(fp, "MI_ERROR_INVALID_TEAMNAME: ");
 	    }
-	    fprintf(fp, "Guide agent sent an invalid team name to the game server.\n");
+	    fprintf(fp, "Guide agent sent an invalid team name to the game ");
+	    fprintf(fp, "server.\n");
 	  }
 	  else if (strcmp(respCode, "MI_ERROR_INVALID_ID") == 0) {
 	    if (logSwitch == 1) {
 	      printTime(fp);
 	      fprintf(fp, "MI_ERROR_INVALID_ID: ");
 	    }
-	    fprintf(fp, "Guide agent sent an invalid ID to the game server.\n");
+	    fprintf(fp, "Guide agent sent an invalid ID to the game server.");
+	    fprintf(fp, "\n");
 	  }
 	  else {
 	    if (logSwitch == 1) {
 	      printTime(fp);
 	      fprintf(fp, "%s\n", buf);
 	    }
-	    fprintf(fp, "Guide agent received a message with an unrecognized OPCODE from the game server\n");
+	    fprintf(fp, "Guide agent received a message with an ");
+	    fprintf(fp, "unrecognized OPCODE from the game server.\n");
 	  }
 	}
       }
     }
   }
-  return 1;
+  return 1;  // return 1 because we did not receive a valid GAME_OVER message
 }
 
 
 
 
-
-
 /************************** handleStdin ***************************/
-
+/* Reads input from standard in. If the user entered command + D, it returns
+ * "EOF" to tell the program to exit the game. 
+ * Returns "0" if there was a problem connecting to the server
+ * If the user typed a message that was 140 characters or less, handleStdin
+ * then prints a list of pebble ID's correspodint to the Field Agents on the
+ * Guide Agent's team and pprompts the user for a pebble ID to send the 
+ * message to. It reads that line, and if there were no erros, it returns a 
+ * string, "idAndHint" that has the format "pebbleID|hint"
+ * Returns the string "NULL" if the Guide Agent has no active agents to send
+ * hints to. 
+ * Returns the string "blank" if the user entered a blank line
+ */
 char *handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 		  char *teamName)
-{  
+{
+  // Get the message that the user typed in
   char *hint = readline(stdin);
-  
+
+  // readline returns NULL if user entered command + D
+  // return "EOF" to signal that the user wants to quit
   if (hint == NULL) {
     return "EOF";
   }
 
+  // User entered a blank line
+  if (strcmp(hint, "") == 0) {
+    free(hint);
+    return "blank";
+  }
+
   int lineLength = (int) strlen(hint);
-  
+
+  // Let the user know if they entered a hint that was too long
   if (lineLength > 140) {
-    printf("Hint must be 140 characters or less!");
+    printf("Hint must be 140 characters or less!\n");
+    printf("Enter a hint to send to the game server.\n");
     fflush(stdout);
-    return hint;
+    free(hint);
+    return "140";
   }
 
   if (gsp->sin_family != AF_INET) {
     printf("I am confused: server is not AF_INET.\n");
     fflush(stdout);
+    free(hint);
     return "0";
   }
 
+  // num keeps track of the number of active agents on the guide's team
   int num = 0;
+  // iterate through our list of total field agents to find num
   list_iterate(list, getNumAgents, &num, NULL);
-  //  int *num = list_find(numAgents, teamName);
   
   fflush(stdout);
 
+  // If num is 0, there are no active Field Agents on the guide's team
+  // Let them know that they don't have anyone to send hints to, and
+  // dont' send a GA_HINT message to the Game Server
   if (num == 0) {
     printf("You have no active agents to send hints to!\n");
     free(hint);
     fflush(stdout);
     return "NULL";
   }
-  
-  printf("Send hint to which field agent? Your active agents have the following ID's:\n");
+
+  // Print prompts for the user to enter the pebble ID of one of their agents
+  printf("Send hint to which field agent? ");
+  printf("Your active agents have the following ID's:\n");
   printf("You may also enter '*' to send to all agents on your team.\n");
 
+  // Print a list of the pebble ID's of active agents on the guide's team
   list_iterate(list, printPebbleIDs, teamName, NULL);
   printf("\n");
-  
-  char *pebble = readline(stdin);
-  if (pebble == NULL)
-    return "EOF";
 
+  // Read the line that the user enters
+  char *pebble = readline(stdin);
+  // If user entered command + D, return
+  if (pebble == NULL) {
+    free(hint);
+    return "EOF";  
+  }
+
+  // If the user entered a blank line, ignore it.
+  while (strcmp(pebble, "") == 0) {
+    pebble = readline(stdin);
+    if (pebble == NULL) {
+      free(hint);
+      return "EOF";
+    }
+  }
+
+  // If we have not yet returned, we have a valid message and pebble ID to send
+  // to the game server. Concatenate a string with the format "pebbleID|hint"
   char* idAndHint = malloc(strlen(pebble) + strlen(hint) + 2);
   sprintf(idAndHint, "%s|%s", pebble, hint);
   
   fflush(stdout);
   free(pebble);
   free(hint);
-  
+
   return idAndHint;
 }
 
 
-
+/*********************** getAgents() **********************/
+/* Takes a bag of strings pertaining to the field containing agent info in the 
+ * GAME_STATUS message. Parses the string, and if valid, assigns the relevant
+ * information to members of an FA struct and puts the FA in another bag. If
+ * the message was parsed and found to be valid, the function returns the bag
+ * full of FA structs. Otherwise, it frees everything in the bag and returns
+ * NULL.
+ */
 bag_t *
 getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch)
 {
@@ -851,7 +908,7 @@ getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch)
   /* Extract each colon-separated agent subfield from the agentBag
    * and parse it, assigning its comma-separated subfields to
    * FA members */
-
+  
   char *agent;
   
   while ((agent = bag_extract(agentBag)) != NULL) {
@@ -978,6 +1035,82 @@ getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch)
   return(FABag);
 }
 
+
+
+
+bag_t *
+getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch)
+{
+  bag_t *CDBag = bag_new();
+  char *codedrop;
+  codedrop_t *cd;
+  
+  while ((codedrop = bag_extract(codedropBag)) != NULL) {
+
+    cd = malloc(sizeof(codedrop_t));
+    if (cd == NULL) {
+      printf("Error locating memory.\n");
+      bag_delete(codedropBag);
+      bag_delete(CDBag);
+      return NULL;
+    }
+
+    char *codeID = strtok(codedrop, ", ");
+    if (codeID == NULL) {
+      if (logSwitch == 1)
+	printTime(fp);
+      fprintf(fp, "Received an invalid message and ignored it.\n");
+      free(cd);
+      bag_delete(codedropBag);
+      bag_delete(CDBag);
+      return NULL;
+    }
+    cd->hexcode = codeID;
+
+    char* lat = strtok(NULL, ", ");
+    if (lat == NULL) {
+      if (logSwitch == 1)
+	printTime(fp);
+      fprintf(fp, "Received an invalid message and ignored it.\n");
+      free(cd);
+      bag_delete(codedropBag);
+      bag_delete(CDBag);
+      return NULL;
+    }
+    cd->latitude = lat;
+
+    char* Long = strtok(NULL, ", ");
+    if (Long == NULL) {
+      if (logSwitch == 1)
+	printTime(fp);
+      fprintf(fp, "Received an invalid message and ignored it.\n");
+      free(cd);
+      bag_delete(codedropBag);
+      bag_delete(CDBag);
+      return NULL;
+    }
+    cd->longitude = Long;
+
+    char *neutralizingTeam = strtok(NULL, ", ");
+    if (neutralizingTeam == NULL) {
+      if (logSwitch == 1)
+	printTime(fp);
+      fprintf(fp, "Received an invalid message and ignored it.\n");
+      free(cd);
+      bag_delete(codedropBag);
+      bag_delete(CDBag);
+      return NULL;
+    }
+    cd->teamname = neutralizingTeam;
+
+    bag_insert(CDBag, cd);
+  }
+
+  bag_delete(codedropBag);
+
+  return CDBag;
+
+}
 
 
 

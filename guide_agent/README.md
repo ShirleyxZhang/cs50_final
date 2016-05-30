@@ -10,6 +10,9 @@ Implementation stuffs:
 Assumptions:
   - Upon starting, if the program has correct and valid arguments, the program should
     prompt the user for a guide ID.
+  - The Guide Agent should only be advised to send hints to active agents on the user's
+    team. However, if they enter a pebble ID that does not belong to one of their field
+    agents anyways, it is the Game Server's job to ignore that message.
   - In order to send a hint to a Field Agent, the user should first type in the message
     that they want to send. If the Guide Agent has no active team members in the game,
     the program should tell them that and not allow them to send a message. Otherwise,
