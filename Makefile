@@ -9,8 +9,7 @@ MAKE = make
 
 all: 
 	@echo "Making everything..."
-	#cd field_agent; $(MAKE)
-	#cd guide_agent; $(MAKE)
+	cd guide_agent; $(MAKE)
 	cd lib; $(MAKE)
 	cd common; $(MAKE)
 	cd game_server; $(MAKE)
@@ -37,6 +36,6 @@ clean:
 	rm -f *.o
 	cd lib; $(MAKE) clean
 	cd common; $(MAKE) clean
-	# cd field_agent; $(MAKE) clean
-	# cd guide_agent; $(MAKE) clean
+	cd field_agent; $(MAKE) clean
+	cd guide_agent; $(MAKE) clean
 	cd game_server; $(MAKE) clean
