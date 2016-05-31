@@ -67,12 +67,9 @@ Assumptions:
   request message to the Game Server. This way, the Guide Agent is updated
   about changes to the game relatively frequently.
 - If the Guide Agent receives a message from the Game Server with an empty
-  agent field, it takes this message as invalid. Therefore, a Guide Agent
-  cannot join a game until 1 or more field agents have joined. This is not a
-  problem since the main job of the Guide Agent is to help Field Agents. The
-  Guide Agent program will keep requesting status updates every 15 seconds
-  anyways, so they will be able to join the game shortly after a Field Agent
-  joins.
+  agent field, it takes this message as invalid. If a Game Server wants to relay to the
+  Guide Agent that no Field Agents have joined the game yet, the FA field in the message
+  should say "NO_AGENTS"
 - If there is a word where an integer should be, or vice-versa, in a message
   that the Guide Agent receives from the Game Server, the program doesn't care.
   For example, say that the Guide Agent receives a GAME_OVER message that looks
@@ -94,7 +91,6 @@ Limitations:
 - If a game server repeatedly sends invalid messages, the Guide Agent does not
   alert them or respond in any way to the invalid messages. It just ignores the
   messages.
-- The Guide Agent cannot join a game until at least one Field Agent has.
 - The program has no way of alerting the user to an invalid message.
 - The program works using UDP, which is not as reliable as TCP.
 - When sending a hint, the Guide Agent chooses from a list of pebble ID's to send hints
@@ -102,3 +98,14 @@ Limitations:
   Agent that the user wants to send a hint to can be a long and annoying task, increasing
   the chance of a typo, making it so the user may not know that they messed up when
   trying to send a hint to their Field Agent.
+- This programs mallocs a lot of different memory for structs and modules such as bags
+  and list
+- The interface window clears when the user starts typing a hint, so they can not see
+  the game statistics until the Game Server sends them another update. However, the Guide
+  Agent will request a status update for every 15 seconds of inactivity, so the Guide
+  Agent should not have to go long without seeing any updates.
+- Because the Guide Agent only gets an update about every 15 seconds, it is possible that
+  the Guide Agent could have some unapplicable data. They may not know of a capture or a
+  code neutralization that happened split seconds after they received an update from the
+  Game Server, so the Guide Agent could potentially send an uninformed hint to one of
+  their Field Agents.
