@@ -1,30 +1,30 @@
 # Makefile for Guide Agent
 #
-# Drew Waterman (Team Lapis), May 2016
+# Team Lapis (Drew Waterman, Deven Orie, Shirley Zhang), May 2016  
 
-
-CFLAGS = -Wall -pedantic -std=c99 -ggdb
+CC = gcc
+CFLAGS = -Wall -pedantic -std=c11 -ggdb
 PROG = guide
-OBJS = ../common/file.o ../lib/list/list.o ../lib/bag/bag.o ../lib/counters/counters.o guide.o
-GTKFLAGS =`pkg-config --cflags --libs gtk+-3.0`
+OBJS = guide.o ../common/file.o ../lib/list/list.o ../lib/bag/bag.o
 MAKE = make
 
-# $(PROG): $(OBJS)
-# 	gcc $(CFLAGS) $^ $(GTKFLAGS) -o $@
 
 
-guide: guide.o
-# 	gcc $(CFLAGS)  $(GTKFLAGS) guide.o ../common/file.o ../lib/list/list.o ../lib/bag/bag.o ../lib/counters/counters.o -o guide
-	 gcc $(CFLAGS) -o guide guide.c ../common/file.c ../common/file.h ../lib/list/list.h ../lib/list/list.c ../lib/bag/bag.h ../lib/bag/bag.c ../lib/counters/counters.h
+guide: $(OBJS)
+	$(CC) $(CFLAGS) -o guide $(OBJS) -lncurses
 
 
-../common/file.o: ../common/file.c ../common/file.h
+guide.o: ../common/file.h ../lib/bag/bag.h ../lib/list/list.h
 
-../lib/list/list.o: ../lib/list/list.h
+../common/file.o: ../common/file.h ../common/file.c
+	cd ../common/; $(MAKE)
+
+../lib/list/list.o: ../lib/list/list.h ../lib/list/list.c
+	cd ../lib/list/; $(MAKE) # ../list/list.o
 
 ../lib/bag/bag.o: ../lib/bag/bag.h ../lib/bag/bag.c
+	cd ../lib/bag/; $(MAKE) # ../bag/bag.o
 
-../lib/counters/counters.o: ../lib/counters/counters.c ../lib/counters/counters.h
 
 
 clean:

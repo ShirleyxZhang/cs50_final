@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <stdbool.h>  
 #include <string.h>
-//Server
+#include <pebble_strtok.h>
+//SERVER
 //#define AppKeyLocation 0
 
 //Deven Orie-CS50-Field Agent
@@ -43,9 +44,14 @@ static char player_name[20]="0";
 static char game_id[30]="0";
 static char pebble_id[35]="0";
 static char team_name[20]="0";
-static char guide_id[10];
 static char capture_id[10];
 
+
+static char guide_id[30];
+static char code_drops_left[30];
+static char friends[100];
+static char foes[100];
+static char game_over_message[8191];
 
 
 static char status_req[3]="0";
@@ -77,30 +83,30 @@ char *chosen_symbol_three="";
 char *chosen_symbol_four="";
 
 //The chose symbols are added to these character arrays 
-char neutralization_code[10];
-char capture_code[10];
-char playerName[20];
-char teamName[20];
+static char neutralization_code[10];
+static char capture_code[10];
+static char playerName[20];
+static char teamName[20];
 
 //Prevents a code from being more than 4 characters
-int incrementer=0;
-int incrementer_two=0;
-int player_letter_incrementer=0;
-int team_letter_incrementer=0;
+static int incrementer=0;
+static int incrementer_two=0;
+static int player_letter_incrementer=0;
+static int team_letter_incrementer=0;
 
 //Allows for string compare to occur once 
-bool match=false;
-bool match_two=false;
+static bool match=false;
+static bool match_two=false;
 
 
-//request update = 1
-//norequest = 0
-
+static char resp_Code[50];
+static char resp_Code_message[500];
 
 // Largest expected inbox and outbox message sizes
 const uint32_t inbox_size = 64;
 const uint32_t outbox_size = 256;
 
+const char delim[2] = "|";
 
 static char message[300];
 static char neutralize_message[8191];
@@ -108,7 +114,8 @@ static char capture_message[8191];
 
 char *game_status_key_check="GAME_STATUS";
 char *game_status_capture_key_check="GS_CAPTURE_ID";
-
+char *game_status_game_over_key_check="GAME_OVER";
+char *game_status_gs_response_key_check="GS_RESPONSE";
 
 //*********************OP Codes****************************************//
 //FA_LOCATION|gameId|pebbleId|teamName|playerName|lat|long|statusReq
@@ -177,15 +184,48 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
     Tuple *received_message = dict_find(iter, AppKeyRecvMsg);
     if (received_message){
       char *hold_message = received_message->value->cstring;
-      //static char message_buffer[8191];
-      //snprintf(message_buffer, 8191, "%s", hold_message);
 
-      LOG("Message From Server");
+      //char *hold_message= "GAME_STATUS|AAA|10|50|30|44";
+      char token[500];
+      strcpy(token ,pebble_strtok(hold_message, delim));
+      if(token!=NULL){
 
+          //GAME_STATUS|gameId|guideId|numRemainingCodeDrops|numFriendlyOperatives|numFoeOperatives
+          if(strcmp(token,game_status_key_check)==0){
 
-      //set equal to a string pointer
-      //received_message->value->cstring;
-    }
+            strcpy(game_id, pebble_strtok(NULL, delim));
+            strcpy(guide_id,pebble_strtok(NULL, delim));
+            strcpy(code_drops_left,pebble_strtok(NULL, delim));
+            strcpy(friends,pebble_strtok(NULL, delim));
+            strcpy(foes,pebble_strtok(NULL, delim));
+          }
+
+          //GS_CAPTURE_ID|gameId|captureId
+          if(strcmp(token,game_status_capture_key_check)==0){
+
+            strcpy(game_id, pebble_strtok(NULL, delim));
+            strcpy(capture_id, pebble_strtok(NULL, delim));
+          }
+
+          //GAME_OVER|gameId|numRemainingCodeDrops|t1:t2:...:tK
+          if(strcmp(token,game_status_game_over_key_check)==0){
+
+            strcpy(game_id, pebble_strtok(NULL, delim));
+            strcpy(code_drops_left, pebble_strtok(NULL, delim));
+            strcpy(game_over_message, pebble_strtok(NULL, delim));
+          }
+
+          //GS_RESPONSE|gameId|respCode|message
+          if(strcmp(token,game_status_gs_response_key_check)==0){
+            strcpy(game_id, pebble_strtok(NULL, delim));
+            strcpy(resp_Code, pebble_strtok(NULL, delim));
+            strcpy(resp_Code_message, pebble_strtok(NULL, delim));
+          }
+      }else{
+        LOG("Message Not Formatted Correctly");
+        LOG(hold_message);
+      }
+    }//end of main if statement
 
     //Location Tuple
    Tuple *location_tuple = dict_find(iter, AppKeyLocation);
@@ -205,10 +245,14 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
 //*********************************************************************//
 
 
-static void tick_handler(struct tm *tick_time, TimeUnits units_changed){
+static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   
-  if((tick_time->tm_sec % 4 == 0) &&(team_registered)){
+  if (tick_time->tm_sec == 2 || tick_time->tm_sec == 6 || tick_time->tm_sec == 10){
     sendMessage(AppKeyLocation,"1");
+  }
+
+  if((tick_time->tm_sec % 4 == 0) &&(team_registered)){
+    //sendMessage(AppKeyLocation,"1");
     memset(message, 0, 300);
     snprintf(message, 300, "FA_LOCATION|%s|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, location, status_req);
     LOG(message);
@@ -247,7 +291,6 @@ void select_click_callback (MenuLayer *player_menu, MenuIndex *cell_index, void 
           //player_registered=true;
           //window_stack_pop(true);
           psleep(100);
-          window_stack_pop(true);
           window_stack_push(choose_team_window,true);
           //timer = app_timer_register(200, getting_captured, 0);
     }
@@ -298,6 +341,7 @@ void select_click_callback_two (MenuLayer *option_menu, MenuIndex *cell_index, v
 
   if (option==3){
     LOG("REQUEST UPDATE FROM GAME SERVER");
+    sendMessage(AppKeySendMsg,"1");
     psleep(5000);
   }
 
@@ -395,24 +439,26 @@ void select_click_callback_three (MenuLayer *neutralize_keyboard, MenuIndex *cel
       strcpy(neutralization_code, neutralize_message);
       snprintf(neutralize_message, 8191, "FA_NEUTRALIZE|%s|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, location, code_neutral);
       LOG(neutralize_message);
+      sendMessage(AppKeySendMsg,neutralize_message);
+
 
       //Iterate though the array of hex_codes
-      for (int i=0; i<index; i++){
+      //for (int i=0; i<index; i++){
         //Comapre the strings 
-        if (strcmp(neutralization_code,hex_test[i]) == 0){
+        //if (strcmp(neutralization_code,hex_test[i]) == 0){
           //Set to true if there is a match
-          match=true;
-        }
-      }//for loop
+        //  match=true;
+        //}
+      //}//for loop
 
       //If a match is found print out the following else....
-      if (match){
-        text_layer_set_text(navigation_header, "Neutralized!");
+     // if (match){
+       // text_layer_set_text(navigation_header, "Neutralized!");
 
-      }else{
-        text_layer_set_text(navigation_header, "Unable to Neutralize!");
+      //}else{
+        //text_layer_set_text(navigation_header, "Unable to Neutralize!");
 
-      } 
+      //} 
       //Resets all of the booleans, integers, and buffers
       match=false;    
       memset(neutralization_code, 0, 10);
@@ -431,7 +477,6 @@ void select_click_callback_three (MenuLayer *neutralize_keyboard, MenuIndex *cel
 //Select Button to input to capture players
 void select_click_callback_four (MenuLayer *capture_keyboard, MenuIndex *cell_index, void *callback_context) {
    int which = cell_index->row;
-   int index = sizeof(hex_test);
   if (which!=0){
 
     //if the code is not greater than for characters 
@@ -514,7 +559,6 @@ void select_click_callback_five (MenuLayer *team_name_keyboard, MenuIndex *cell_
           strcpy(team_name,teamName);
           team_registered=true;
           psleep(100);
-          window_stack_pop(true);
           window_stack_push(window2,true);
           //window_stack_pop(window_get_root_layer(window2));
     }
@@ -701,13 +745,6 @@ void window_load_team_input (Window *window){
   text_layer_set_font(team_input, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
   text_layer_set_text_alignment(team_input, GTextAlignmentCenter);
 
-
-  MenuLayerCallbacks callbacksthree = {
-    .draw_row = (MenuLayerDrawRowCallback) draw_row_callback_three,
-    .get_num_rows = (MenuLayerGetNumberOfRowsInSectionsCallback) num_rows_callback_three,
-    .select_click = (MenuLayerSelectCallback) select_click_callback_three
-  };
-
   MenuLayerCallbacks callbacksfive = {
     .draw_row = (MenuLayerDrawRowCallback) draw_row_callback_three,
     .get_num_rows = (MenuLayerGetNumberOfRowsInSectionsCallback) num_rows_callback_three,
@@ -848,8 +885,6 @@ void init() {
   capture_window =window_create();
   getting_captured=window_create();
   hints_window=window_create();
-
-  Layer *window_layer = window_get_root_layer(window);
 
 
   // Setup the window handlers
