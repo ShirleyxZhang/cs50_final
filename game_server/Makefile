@@ -1,25 +1,23 @@
-# Makefile for Guide Agent
-#
+# Makefile for Guide Server
+
 # Shirley Zhang (Team Lapis), May 2016
 
-# L = ../lib
-# C = ../common
 # PROG = game_server
 # OBJS = game_server.o
 # CFLAGS = -Wall -pedantic -std=c11 -ggdb
 # CC = gcc
 # MAKE = make
 
-# all: 
-# 	$(MAKE) $(PROG)
-# 	@echo "TODO: make game_servergame_server..."
 
-# # build the querier
-# $(PROG): c $(LLIBS)
-# 	$(CC) $(CFLAGS) $^ $(LIBS) -o $@
+	
+
+# # build the game_server
+# $(PROG): $(OBJS)
+# 	@echo "TODO: make game_servergame_server..."
+# 	$(CC) $(CFLAGS) $^ -o $@
 
 # #source dependencies; add others as needed
-# game_server.o: $(C)/file.h $(C)/word.h $(L)/hashtable/hashtable.h $(L)/counters/counters.h $(L)/list/list.h
+# game_server.o: $../common/file.h $../common/word.h $../lib/hashtable/hashtable.h $../lib/counters/counters.h $../lib/list/list.h
 
 
 # clean:
@@ -29,24 +27,51 @@
 # 	rm -f $(PROG)
 
 
-CFLAGS = -Wall -pedantic -std=c11 -ggdb -lm
+# CFLAGS = -Wall -pedantic -std=c11 -ggdb -lm
+# PROG = game_server
+# OBJS = game_server.o
+# MAKE = make
+
+# # $(PROG): $(OBJS)
+# # 	gcc $(CFLAGS) $^ $(GTKFLAGS) -o $@
+
+# all: game_server
+
+
+# game_server: game_server.o
+# 	 gcc $(CFLAGS) -o game_server game_server.c ../common/file.c ../common/file.h ../lib/list/list.c ../lib/list/list.h ../lib/hashtable/hashtable.c ../lib/hashtable/hashtable.h ../lib/hashtable/jhash.c ../lib/hashtable/jhash.h
+# #guide.o: ../common/file.c ../common/file.h 
+
+
+
+# clean:
+# 	rm -f *~
+# 	rm -f *.o
+# 	rm -f $(PROG)
+
+
+L = ../lib
+C = ../common
 PROG = game_server
 OBJS = game_server.o
-###GTKFLAGS = `pkg-config --cflags --libs gtk+-3.0` 
+#LIBS = -lcurl
+LLIBS = $(L)/cs50ds.a $(C)/common.a
+CFLAGS = -Wall -pedantic -std=c11 -ggdb -lm
+CC = gcc
 MAKE = make
 
-# $(PROG): $(OBJS)
-# 	gcc $(CFLAGS) $^ $(GTKFLAGS) -o $@
+# build the crawler
+$(PROG): $(OBJS) $(LLIBS)
+	$(CC) $(CFLAGS) $^ $(LIBS) -o $@
 
-all: game_server
-
-
-game_server: game_server.o
-	gcc $(CFLAGS) -o game_server game_server.c ../common/file.c ../common/file.h ../lib/list/list.c ../lib/list/list.h ../lib/hashtable/hashtable.c ../lib/hashtable/hashtable.h ../lib/hashtable/jhash.c ../lib/hashtable/jhash.h
-#guide.o: ../common/file.c ../common/file.h 
-
-
+# source dependencies; add others as needed
+game_server.o: $(C)/file.h $(C)/word.h $(L)/bag/bag.h $(L)/hashtable/hashtable.h $(L)/counters/counters.h
 
 clean:
 	rm -f *~
 	rm -f *.o
+	rm -f $(PROG)
+
+
+
+

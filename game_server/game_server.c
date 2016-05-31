@@ -885,7 +885,7 @@ static void get_fa_info(void *arg, char* key, void *data, void* optional)
 		curr_status = "captured";
 	}
 	int timesincecontact = time(NULL) - curr_fa->contact;
-	sprintf(update,"%s%s,%s,%s,%s,%f,%f,%d:",update,curr_fa->pebbleid,curr_fa->teamname,curr_fa->name,curr_status,curr_fa->location->latitude,curr_fa->location->longitude,timesincecontact);
+	sprintf(update,"%s%s, %s, %s, %s, %f, %f, %d:",update,curr_fa->pebbleid,curr_fa->teamname,curr_fa->name,curr_status,curr_fa->location->latitude,curr_fa->location->longitude,timesincecontact);
 	
 }
 
