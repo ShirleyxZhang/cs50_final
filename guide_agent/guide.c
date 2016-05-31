@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
     if (select_response < 0) {
       // Some error occured
       printf("Error\n");
-      exit(9);
+      exit(7);
     }
     else if (select_response == 0) {
       // timeout occured; request status from Game Server
@@ -461,7 +461,7 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 
   if (nbytes < 0) {
     perror("receiving from socket");
-    exit(1);
+    exit(6);
   }
   else {
     buf[nbytes] = '\0';     // null terminate string
@@ -573,9 +573,6 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	  bag_t *FABag = getAgents(agentBag, list, fp, logSwitch);
 	  if (FABag == NULL)
 	    return 1;
-
-	  // code drop struct to store the strtok'd code drop info in
-	  //codedrop_t *cd;
 
 	  // Bag to hold strtok'd code drop strings
 	  bag_t *codedropBag = bag_new();
