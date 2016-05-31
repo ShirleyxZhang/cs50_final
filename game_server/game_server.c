@@ -144,7 +144,7 @@ int main(const int argc, char *argv[])
 	char gameID[ID_LENGTH];
 	generate_hex(gameID, ID_LENGTH);
 	gameID[ID_LENGTH] = '\0';
-	printf("%s\n",gameID );
+	printf("The gameID is: %s\n",gameID );
 
 	//gameover switch
 	bool over = false;
@@ -171,7 +171,7 @@ int main(const int argc, char *argv[])
 
   	time_t endwait;
     time_t start = time(NULL);
-    time_t seconds = 10000; // after 20s, end loop.
+    time_t seconds = 30; // end after this many second
 
     endwait = start + seconds;
 
@@ -452,18 +452,20 @@ int main(const int argc, char *argv[])
 				free(response);
 			}
 
-			if (codedrop_num == 0){
+			start = time(NULL);
+
+			if (codedrop_num == 0 || (start > endwait)){
 				char* notice = malloc(BUFSIZE);
 		  		char* opcode = "GAME_OVER";
 		  		over = true;
-				sprintf(notice, "%s|%s|",opcode,gameID);
+				sprintf(notice, "%s|%s|%d|",opcode,gameID,codedrop_num);
 				list_iterate(teamlist,finish_game,notice,NULL);
 				list_iterate(playerlist,send_to_fa,notice,NULL);
 				list_iterate(guidelist,send_to_GA,notice,NULL);
 				logfile("The game has ended.");
 				free(notice);
 			}
-			start = time(NULL);
+			
 	  	}
 	  	
 	}
@@ -934,7 +936,7 @@ static void send_to_fa(void *arg, char* key, void *data, void* optional)
 
 
 /*******finish_game()****
-* Helps create the string that contains the wanted info of all team at the end of the game
+* Helps create the string that contains the wanted info of all teams at the end of the game
 * to send in the GAME_OVER message
 */
 static void finish_game(void *arg, char* key, void *data, void* optional)
