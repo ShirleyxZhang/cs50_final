@@ -38,6 +38,7 @@
 #include "../common/file.h"
 #include "../lib/list/list.h"
 #include "../lib/bag/bag.h"
+#include <ncurses.h>
 
 /* Struct used to hold information about code drops
  * in messages sent by the Game Server */
@@ -100,7 +101,32 @@ void freeBag(bag_t *bag);
 static int BUFSIZE = 8000;
 
 
+WINDOW *create_newwin(int height, int width, int starty, int startx);
+void destroy_win(WINDOW *local_win);
+
+
 int main(int argc, char *argv[]) {
+
+  /* WINDOW *my_win; */
+  /* int startx, starty, width, height; */
+
+  /* initscr();/\* Start curses mode *\/ */
+  /* cbreak();/\* Line buffering disabled, Pass on */
+  /* 	    * everty thing to me *\/ */
+  /* keypad(stdscr, TRUE);/\* I need that nifty F1 *\/ */
+
+  /* height = 3; */
+  /* width = 10; */
+  /* int row,col; */
+  /* getmaxyx(stdscr,row,col); */
+  /* //  mvprintw(row,(col-strlen(mesg)),"%s",mesg); */
+  /* starty = (LINES - height) / 2;/\* Calculating for a center placement *\/ */
+  /* startx = (COLS - width) / 2;/\* of the window*\/ */
+  /* refresh(); */
+
+  /* my_win = create_newwin(height, width, starty, startx); */
+
+  //  keypad(my_win, TRUE);
   
   // Represents whether or not the -v switch was used
   // Default is 0 if the switch was not called by the user, and 1 if it was.
@@ -157,6 +183,7 @@ int main(int argc, char *argv[]) {
   // prompt user for an ID used to identify the guide agent
   guideID = getGuideID();
 
+  
   // If the user entered "^D" before entering an ID, exit the program
   if (strcmp(guideID, "EOF") == 0) {
     printf("\n");
@@ -174,6 +201,23 @@ int main(int argc, char *argv[]) {
   /***** send message to GS to announce presence *****/
   sendFirstMessage(guideID, teamName, playerName, comm_sock, gs);
 
+
+  /***** ASCII stuff *****/
+  
+  initscr();/* Start curses mode */
+  cbreak();/* Line buffering disabled, Pass on\
+            * everty thing to me */
+  keypad(stdscr, TRUE);/* I need that nifty F1 */
+
+  int row, col;
+  getmaxyx(stdscr,row,col);
+  char *mesg = "Welcome to the game!";
+  char *mesg2 = "Waiting on input from the game server.";
+  char *mesg3 = "Please press enter to start.";
+  mvprintw(row/2 - 1, (col-strlen(mesg))/2, "%s", mesg);
+  mvprintw(row/2, (col-strlen(mesg2))/2, "%s", mesg2);
+  mvprintw(row/2 + 1, (col-strlen(mesg3))/2, "%s", mesg3);
+  refresh();
   
   // open up a file to write the guide agent log to
   FILE *logp;
@@ -195,7 +239,13 @@ int main(int argc, char *argv[]) {
   list_t *FAList = list_new(deletefunc);
   
   /*** enter while loop that will run until the game ends ***/
+  
   while (true) {
+    
+    char myString[BUFSIZE];
+    
+    getstr(myString);
+    
     // for use with select()
     fd_set rfds;              // set of file descriptors we want to read
     struct timeval timeout;   // how long we're willing to wait
@@ -296,7 +346,7 @@ int main(int argc, char *argv[]) {
 
 	// handle the datagram coming in from the socket
 	if (handleSocket(comm_sock, &gs, FAList, &gameID, logp,
-			 logSwitch) == 0) {
+			 logSwitch) == 0) {	  
 	  // 0 means we received a GAME_OVER message
 	  break;
 	}
@@ -452,6 +502,8 @@ static int
 handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	     char **gameID, FILE *fp, int logSwitch)
 {
+  int pos = 0;
+  
   // socket has input ready
   struct sockaddr_in sender;            // sender of this message
   struct sockaddr *senderp = (struct sockaddr *) &sender;
@@ -615,7 +667,7 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	      printTime(fp);
 	    fprintf(fp, "Guide agent received first message from game ");
 	    fprintf(fp, "server. The ID of this game is %s\n", *gameID);
-	    printf("Joined a game!\n");
+	    mvprintw(pos++, 0, "Joined a game!\n");
 	  }
 	  else if (strcmp(ID, *gameID) != 0) {
 	    // the message we just received contains a different gameID
@@ -628,29 +680,29 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	  }
 
 	  /***** Message has been validated; time to start printing *****/
-	  printf("%s:\n", OPCODE);
-	  printf("Game ID is %s\n", ID);
-	  printf("Agents:\n");
-
+	  mvprintw(pos++, 0, "%s:\n", OPCODE);
+	  mvprintw(pos++, 0, "Game ID is %s\n", ID);
+	  mvprintw(pos++, 0, "Agents:\n");
+	  
 	  FA_t *myFA;
 
 	  // Extract all the FA structs from the FABag, and print the
 	  // information we stored in them
 	  while ((myFA = bag_extract(FABag)) != NULL) {
 		      
-	    printf("   Agent %s from team %s: pebble ID is %s.\n",
-		   myFA->name, myFA->teamname, myFA->pebbleid);
+	    mvprintw(0, 0, "   Agent %s from team %s: pebble ID is %s.\n",
+                   myFA->name, myFA->teamname, myFA->pebbleid);
+     	    refresh();
 	    
 	    if (myFA->capture == true)
-	      printf("     %s has been captured and is no longer active.\n",
-		     myFA->name);
+	      mvprintw(pos++, 5, "%s has been captured and is no longer active.\n", myFA->name);
 	    else
-	      printf("     %s has not been captured and is still active.\n",
-		     myFA->name);
+	      mvprintw(pos++, 5, "%s has not been captured and is still active.\n", myFA->name);
 
-	    printf("     Last known latitude: %s. ", myFA->latitude);
-	    printf("Last known longitude is :%s\n", myFA->longitude);
-	    printf("     Seconds since last contact is %s.\n", myFA->contact);
+	      
+	    mvprintw(pos++, 5, "Last known latitude: %s. ", myFA->latitude);
+	    mvprintw(pos++, 5, "Last known longitude is: %s\n", myFA->longitude);
+	    mvprintw(pos++, 5, "Seconds since last contact is %s.\n", myFA->contact);
 
 	    // Insert the FA structs into the list for later access when
 	    // printing the pebbleID's for the Guide Agent to choose from
@@ -658,7 +710,7 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	  }
 	  bag_delete(FABag);
 		      
-	  printf("Code drops:\n");
+	  mvprintw(pos++, 0, "Code drops:\n");
 
 	  codedrop_t *cd;
 
@@ -666,16 +718,17 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	  // information we stored in them
 	  while((cd = bag_extract(CDBag)) != NULL) {
 	    
-	    printf("   Code drop %s: ", cd->hexcode);
-	    printf("latitude is %s, ", cd->latitude);
-	    printf("longitude is %s. ", cd->longitude);
+	    mvprintw(pos++, 5, "Code drop %s: ", cd->hexcode);
+	    mvprintw(pos++, 5, "latitude is %s, ", cd->latitude);
+	    mvprintw(pos++, 5, "longitude is %s. ", cd->longitude);
 	    if (strcmp(cd->teamname, "NONE") == 0)
-	      printf("Has not yet been neutralized.\n");
+	      mvprintw(pos++, 0, "Has not yet been neutralized.\n");
 	    else
-	      printf("Neutralized by %s.\n", cd->teamname);
+	      mvprintw(pos++, 0, "Neutralized by %s.\n", cd->teamname);
 	    fflush(stdout);
 	    free(cd);
 	  }
+	  refresh();
 	  bag_delete(CDBag);
    	}    
 	
@@ -1339,7 +1392,7 @@ int printGameOver(char *gameID, FILE *fp, int logSwitch) {
  * formatted message with the OPCODE GA_STATUS.
  */
 int sendStatusRequest(char *gameID, char *guideID, char *teamName,
-		  char *playerName, int comm_sock, const struct sockaddr *gsp)
+		      char *playerName, int comm_sock, const struct sockaddr *gsp)
 {
   // allocate memory for the GA_STATUS message
   char *request = malloc(16 + strlen(gameID) + strlen(guideID) +
@@ -1478,4 +1531,43 @@ void freeBag(bag_t *bag)
 
   while ((bagItem = bag_extract(bag)) != NULL)
     free(bagItem);
+}
+
+
+
+
+
+
+WINDOW *create_newwin(int height, int width, int starty, int startx)
+{WINDOW *local_win;
+
+  local_win = newwin(height, width, starty, startx);
+  box(local_win, 0 , 0);/* 0, 0 gives default characters */
+  // * for the vertical and horizontal */
+  /* * lines*\/ */
+  wrefresh(local_win);/* Show that box */
+
+  return local_win;
+}
+
+void destroy_win(WINDOW *local_win)
+{
+  /* box(local_win, ' ', ' '); : This won't produce the desired
+   * result of erasing the window. It will leave it's four corners 
+   * and so an ugly remnant of window. 
+   */
+  wborder(local_win, ' ', ' ', ' ',' ',' ',' ',' ',' ');
+  /* The parameters taken are 
+   * 1. win: the window on which to operate
+   * 2. ls: character to be used for the left side of the window 
+   * 3. rs: character to be used for the right side of the window 
+   * 4. ts: character to be used for the top side of the window 
+   * 5. bs: character to be used for the bottom side of the window 
+   * 6. tl: character to be used for the top left corner of the window 
+   * 7. tr: character to be used for the top right corner of the window 
+   * 8. bl: character to be used for the bottom left corner of the window 
+   * 9. br: character to be used for the bottom right corner of the window
+   */
+  wrefresh(local_win);
+  delwin(local_win);
 }

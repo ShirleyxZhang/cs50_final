@@ -97,3 +97,8 @@ Limitations:
 - The Guide Agent cannot join a game until at least one Field Agent has.
 - The program has no way of alerting the user to an invalid message.
 - The program works using UDP, which is not as reliable as TCP.
+- When sending a hint, the Guide Agent chooses from a list of pebble ID's to send hints
+  to. However, the pebble ID's can get long, so typing in the pebble ID of the Field
+  Agent that the user wants to send a hint to can be a long and annoying task, increasing
+  the chance of a typo, making it so the user may not know that they messed up when
+  trying to send a hint to their Field Agent.

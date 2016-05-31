@@ -11,20 +11,19 @@ MAKE = make
 
 
 guide: $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS)
-
+	$(CC) $(CFLAGS) -o guide $(OBJS) -lncurses
 
 
 guide.o: ../common/file.h ../lib/bag/bag.h ../lib/list/list.h
 
 ../common/file.o: ../common/file.h ../common/file.c
-	cd ../common/; $(MAKE) ../common/file.o
+	cd ../common/; $(MAKE)
 
 ../lib/list/list.o: ../lib/list/list.h ../lib/list/list.c
-	cd ../lib/list/; $(MAKE) ../list/list.o
+	cd ../lib/list/; $(MAKE) # ../list/list.o
 
 ../lib/bag/bag.o: ../lib/bag/bag.h ../lib/bag/bag.c
-	cd ../lib/bag/; $(MAKE) ../bag/bag.o
+	cd ../lib/bag/; $(MAKE) # ../bag/bag.o
 
 
 
