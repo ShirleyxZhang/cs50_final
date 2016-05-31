@@ -37,3 +37,4 @@ clean:
 	cd hashtable; $(MAKE) clean
 	cd bag; $(MAKE) clean
 	cd list; $(MAKE) clean
+	cd counters; $(MAKE) clean

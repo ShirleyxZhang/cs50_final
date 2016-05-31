@@ -4,17 +4,18 @@
  * Receives status updates from the Game Server and allows the person 
  * playing as the Guide Agent to send hints to Field Agents through the
  * Game Server. 
+ * User interacts with the game mainly through an ASCII interface.
  *
  * Usage: 
  *    ./guide [-v] teamName playerName GShost GSport
  * 
  * Upon receipt of valid command line parameters, Guide Agent sets up a socket.
  * It joins a game by sending a message to the Game Server, and then it listens
- * for input from stdin and the socket. Input from the socket includes game
- * updates from the Game Server and "Game Over" notifications from the Game 
- * Sever. Input from stdin includes hints that the Guide Agent enters to send
- * to one of its Field Agents. It sends these hints via formatted messages to
- * the Game Server.
+ * for input from stdin and the socket and uses the ncurses library to present 
+ * an ASCII interface. Input from the socket includes game updates from the 
+ * Game Server and "Game Over" notifications from the Game Sever. Input from 
+ * stdin includes hints that the Guide Agent enters to send to one of its Field
+ * Agents. It sends these hints via formatted messages to the Game Server. 
  *
  * Team Lapis (Drew Waterman, Deven Orie, Shirley Zhang), May 2016
  *
@@ -112,6 +113,7 @@ int main(int argc, char *argv[]) {
   // arguments will cause the program to exit.
   int n = 0;
 
+  // Guide Agent and game information
   char *teamName;
   char *playerName;
   char *guideID;
@@ -131,6 +133,12 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  if (argc < 5) {
+    printf("Error: incorrect number of arguments.\n");
+    printf("Usage: ./guide [-v] teamName playerName GShost GSport\n");
+    exit(1);
+  }
+  
   // Increment n for every iteration of the while loop.
   // After the while loop, n will represent the number of switches on the
   // command line that come before the non-optional arguments
@@ -198,7 +206,6 @@ int main(int argc, char *argv[]) {
   mvprintw(row/2, (col-strlen(mesg3))/2, "%s", mesg3);
   mvprintw(row/2 + 1, (col-strlen(instruct1))/2, "%s", instruct1);
   mvprintw(row/2 + 2, (col-strlen(instruct2))/2, "%s", instruct2);
-	   
   refresh();
   
   // open up a file to write the guide agent log to
@@ -244,6 +251,9 @@ int main(int argc, char *argv[]) {
 
     if (select_response < 0) {
       // Some error occured
+      close(comm_sock);
+      fclose(logp);
+      endwin();
       mvprintw(pos++, 0, "Error\n");
       exit(7);
     }
@@ -253,9 +263,14 @@ int main(int argc, char *argv[]) {
 	int stat = sendStatusRequest(gameID, guideID, teamName, playerName,
 				     comm_sock, gsp);
 
-	if (stat > 0)
-	  // an error occured while trying to send a status request
+	if (stat > 0) {
+	  // an error occured while trying to send a status request 
+	  close(comm_sock);
+	  putchar('\n');
+	  fclose(logp);
+	  endwin();
 	  exit(stat);
+	}
       }
     }
     else if (select_response > 0) {
@@ -274,13 +289,15 @@ int main(int argc, char *argv[]) {
 	  if (strcmp(idAndHint, "EOF") == 0)
 	    break;
 
+	  // Don't do anyting if the user just enters a blank line
 	  if (strcmp(idAndHint, "blank") == 0)
-	    printf("\n");
+	    mvprintw(0, 0, "\n");
 
 	  // If handleStdin returned "0", that means that the AF_INET did
 	  // not match
 	  else if (strcmp(idAndHint, "0") == 0) {
-	    mvprintw(pos++, 0, "Could not send the message to the Game Server.\n");
+	    char *errorMsg = "Could not send the message to the Game Server.";
+	    mvprintw(pos++, 0, "%s", errorMsg);
 	    refresh();
 	  }
 	  // Check to make sure we've joined a game that we can send hints to
@@ -293,6 +310,9 @@ int main(int argc, char *argv[]) {
 
 	    // Make sure that malloc did not return NULL
 	    if (sendHint == NULL) {
+	      close(comm_sock);
+	      fclose(logp);
+	      endwin();
 	      printf("Error allocating memory for message.\n");
 	      exit(3);
 	    }
@@ -306,6 +326,9 @@ int main(int argc, char *argv[]) {
 	    if (sendto(comm_sock, sendHint, strlen(sendHint), 0,
 		       (struct sockaddr *) gsp, sizeof(*gsp)) < 0){
 	      perror("error sending datagram\n");
+	      close(comm_sock);
+	      fclose(logp);
+	      endwin();
 	      exit(5);  // exit if there were any errors
 	    }
 	    else {
@@ -319,7 +342,8 @@ int main(int argc, char *argv[]) {
 	  }
 	  else {
 	    // gameID is NULL, which means we haven't joined a game yet
-	    mvprintw(row/2, 0, "You can't send hints until you've joined the game!\n");
+	    char* warning = "You can't send hints until you join the game!\n";
+	    mvprintw(row/2, 0, "%s", warning);
 	    refresh();
 	    fflush(stdout);	    
 	    free(idAndHint);
@@ -1511,12 +1535,12 @@ void printPebbleIDs(void *arg, char *key, void *data, void *option)
   char *teamName = arg;
   int *pos = option;
     
-    // Print the pebble ID only if the Field Agent belongs to the Guide's team
-    // and has not been captured yet
+  // Print the pebble ID only if the Field Agent belongs to the Guide's team
+  // and has not been captured yet
   if (strcmp(pebbleteam, teamName) == 0 && strcmp(key, "NONE") != 0){
-      mvprintw((*pos)++, 0, "%s ", key);
-      refresh();
-    }  
+    mvprintw((*pos)++, 0, "%s ", key);
+    refresh();
+  }  
 }
 
 

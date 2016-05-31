@@ -12,17 +12,18 @@ Usage:
 * Receives status updates from the Game Server and allows the person
 * playing as the Guide Agent to send hints to Field Agents through the
 * Game Server.
+* User interacts with the game mainly through an ASCII interface. 
 *
 * Usage:
 *    ./guide [-v] teamName playerName GShost GSport
 *
 * Upon receipt of valid command line parameters, Guide Agent sets up a socket.
 * It joins a game by sending a message to the Game Server, and then it listens
-* for input from stdin and the socket. Input from the socket includes game
-* updates from the Game Server and "Game Over" notifications from the Game
-* Sever. Input from stdin includes hints that the Guide Agent enters to send
-* to one of its Field Agents. It sends these hints via formatted messages to
-* the Game Server.
+* for input from stdin and the socket and uses the ncurses library to present
+* an ASCII interface. Input from the socket includes game updates from the
+* Game Server and "Game Over" notifications from the Game Sever. Input from
+* stdin includes hints that the Guide Agent enters to send to one of its Field
+* Agents. It sends these hints via formatted messages to the Game Server. 
 *
 * Team Lapis (Drew Waterman, Deven Orie, Shirley Zhang), May 2016
 *
@@ -67,9 +68,9 @@ Assumptions:
   request message to the Game Server. This way, the Guide Agent is updated
   about changes to the game relatively frequently.
 - If the Guide Agent receives a message from the Game Server with an empty
-  agent field, it takes this message as invalid. If a Game Server wants to relay to the
-  Guide Agent that no Field Agents have joined the game yet, the FA field in the message
-  should say "NO_AGENTS"
+  agent field, it takes this message as invalid. If a Game Server wants to
+  relay to the Guide Agent that no Field Agents have joined the game yet, the
+  FA field in the message should say "NO_AGENTS"
 - If there is a word where an integer should be, or vice-versa, in a message
   that the Guide Agent receives from the Game Server, the program doesn't care.
   For example, say that the Guide Agent receives a GAME_OVER message that looks
@@ -93,19 +94,31 @@ Limitations:
   messages.
 - The program has no way of alerting the user to an invalid message.
 - The program works using UDP, which is not as reliable as TCP.
-- When sending a hint, the Guide Agent chooses from a list of pebble ID's to send hints
-  to. However, the pebble ID's can get long, so typing in the pebble ID of the Field
-  Agent that the user wants to send a hint to can be a long and annoying task, increasing
-  the chance of a typo, making it so the user may not know that they messed up when
-  trying to send a hint to their Field Agent.
-- This programs mallocs a lot of different memory for structs and modules such as bags
-  and list
-- The interface window clears when the user starts typing a hint, so they can not see
-  the game statistics until the Game Server sends them another update. However, the Guide
-  Agent will request a status update for every 15 seconds of inactivity, so the Guide
-  Agent should not have to go long without seeing any updates.
-- Because the Guide Agent only gets an update about every 15 seconds, it is possible that
-  the Guide Agent could have some unapplicable data. They may not know of a capture or a
-  code neutralization that happened split seconds after they received an update from the
-  Game Server, so the Guide Agent could potentially send an uninformed hint to one of
-  their Field Agents.
+- When sending a hint, the Guide Agent chooses from a list of pebble ID's to
+  send hints to. However, the pebble ID's can get long, so typing in the pebble
+  ID of the Field Agent that the user wants to send a hint to can be a long and
+  annoying task, increasing the chance of a typo, making it so the user may not
+  know that they messed up when trying to send a hint to their Field Agent.
+- This programs mallocs a lot of different memory for structs and modules such
+  as bags and list
+- The interface window clears when the user starts typing a hint, so they can
+  not see the game statistics until the Game Server sends them another update.
+  However, the Guide Agent will request a status update for every 15 seconds of
+  inactivity, so the Guide Agent should not have to go long without seeing any
+  updates.
+- Because the Guide Agent only gets an update about every 15 seconds, it is
+  possible that the Guide Agent could have some unapplicable data. They may not
+  know of a capture or a code neutralization that happened split seconds after
+  they received an update from the Game Server, so the Guide Agent could
+  potentially send an uninformed hint to one of their Field Agents.
+- The Guide Agent cannot join the game until after a Game Server starts up. If
+  the Guide Agent starts up before the Game Server, it will never join the
+  game, even if the Game Server starts up while Guide Agent is running.
+- There will hardly ever be enough active agents in the game to reach the end
+  of the Guide Agent interface screen when printing. If there are, it does not
+  really matter, since the Guide Agent will have enough information to work
+  with in assisting their Field Agents, and can ignore the information that
+  does not get printed.
+- The text on the Guide Agent interface goes away when the user tries to
+  scroll. However, it comes back upon new input from the socket or when the
+  user enters another hint to a Field Agent.

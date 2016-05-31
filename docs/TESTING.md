@@ -1,5 +1,5 @@
 ## TESTING.md ##
-To test the game server we used the chatserver client provided in lectures. From the chat we sent to the game server appropriate 
+To test the game server we used the chatserver client provided in lectures. From the chat we sent to the game server appropriate messages to create a game using "fake" field and guide agents.
 We created "fake" field agents and guide agents for example:
 
 **making fake players**
@@ -101,3 +101,123 @@ success send: GAME_STATUS|286|no active guide|24|1|1
 success send: GS_RESPONSE|286|MI_CAPTURE_SUCCESS|successfully captured!  
 
 success send: GS_RESPONSE|286|MI_CAPTURED|You have been captured!
+
+
+** Sending game over message **
+
+The gameID is: C21D37E5
+Ready at port 23383
+From port 44264: 'FA_LOCATION|0|fa3ID|TEAM2|FA3|43.7033615112305|-72.2885437011719|1'
+success send: GAME_STATUS|C21D37E5|no active guide|25|1|0
+
+From port 44264: 'FA_LOCATION|0|fa2ID|lapis|FA2|43.7033825112305|-72.2885437011719|1'
+success send: GAME_STATUS|C21D37E5|no active guide|25|1|1
+
+From port 44264: 'FA_LOCATION|0|fa4ID|lapis|FA4|43.7033643050646|-72.2885407136371|1'
+success send: GAME_STATUS|C21D37E5|no active guide|25|2|1
+
+success send: GAME_OVER|C21D37E5|25|:TEAM2,1,0,0,0:lapis,2,0,0,0
+
+success send: GAME_OVER|C21D37E5|25|:TEAM2,1,0,0,0:lapis,2,0,0,0
+
+success send: GAME_OVER|C21D37E5|25|:TEAM2,1,0,0,0:lapis,2,0,0,0
+
+
+
+
+
+
+
+
+########################## Testing Guide Agent ##############################
+To test the Guide Agent, we used the assistance of the chatserver program provided in the CS50 lectures. We ran chatserver from a local directory on one of our Macs, and we ran Guide Agent on one of the CS50 servers and connected it to the chatserver. From the chatserver, we were able to print out messages sent by the Guide Agent, and we received "fake" messages formatted like messages from the Game Server.
+
+
+### Testing invalid command-line parameters:
+
+[waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide 1
+Error: incorrect number of arguments.
+Usage: ./guide [-v] teamName playerName GShost GSport
+[waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide 1 2
+Error: incorrect number of arguments.
+Usage: ./guide [-v] teamName playerName GShost GSport
+[waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide 1 2 3
+Error: incorrect number of arguments.
+Usage: ./guide [-v] teamName playerName GShost GSport
+[waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide 1 2 3 4
+What is the guide's ID?: 12341234
+Error sending startup message
+[waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide lapis 007 host port
+What is the guide's ID?: 12341234
+Port number can only consist of integers.
+
+
+
+
+### Using valid parameters to start the Guide Agent
+    First, start the chatserver:
+        marias-mbp-6:client-server-udp-select mariawaterman$ ./chatserver
+    	Ready at port 56605
+
+Then use the port given to connect the Guide Agent to the chat server.
+The program prompts the user for an ID.
+     ./guide -v lapis 007 10.31.39.63 56605
+     What is the guide's ID?:
+We enter 12345678, and the program takes us to an ASCII interface.
+This is what pops up on the screen:
+
+                             Welcome to the game!
+	            Waiting on input from the game server.
+                         Please press enter to start.
+		  Then enter a hint to send to a field agent
+                      Enter 'quit' to quit at any time.
+
+When we press enter, it takes us to a blank screen.
+Let's enter a GAME_STATUS message through the chatserver to the Guide Agent
+The Guide Agent gets the message, displays the following, and sends periodic status requests to the "Game Server" every 15 seconds. 
+
+Enter a hint to send to a field agent, or enter 'quit' to quit.
+GAME_STATUS:
+Game ID is D19D9
+Locations of active agents:
+     Agent FA1: team lapis: 8.000000,8.000000
+          Agent FA2: team TEAM1: 8.000000,8.000000
+	       Agent FA5: team TEAM2: 8.000000,8.000000
+	       Locations of active code drops:
+	       Code drop 68A6: 43.705,-72.29;
+	       Code drop B3EB: 43.708,-72.28;
+	       Code drop 2CA3: 43.706,-72.28;
+	       Code drop 9231: 43.705,-72.28;
+	       Code drop 053F: 43.702,-72.28;
+	       Code drop 1AFE: 43.701,-72.28;
+	       Code drop 4760: 43.703,-72.28;
+	       Code drop 05AD: 43.703,-72.28;
+	       Code drop 1819: 43.701,-72.28;
+	       Code drop 002C: 43.700,-72.28;
+	       Code drop 268B: 43.700,-72.28;
+	       Code drop 6C8A: 43.701,-72.28;
+	       Code drop 17E2: 43.702,-72.28;
+	       Code drop AEA3: 43.702,-72.28;
+	       Code drop 2C15: 43.703,-72.29;
+	       Code drop 4C24: 43.702,-72.28; 
+
+
+This is what we see on the chatserver side:
+Ready at port 56605
+[129.170.213.207@40863]: GA_STATUS|0|12345678|lapis|007|1
+: GAME_STATUS|D19D9|fa1ID, lapis, FA1, active, 8.000000,8.000000,113:fa2ID,TEAM1,FA2,active,8.000000,8.000000,113:fa5ID,TEAM2,FA5,active,8.000000,8.000000,45:|: 68A6,43.7050819396973,-72.2949295043945,NONE: B3EB,43.7088928222656,-72.2842864990234,NONE: 2CA3,43.7064704895020,-72.2871017456055,NONE: 9231,43.7051391601562,-72.2881393432617,NONE: 053F,43.7024879455566,-72.2865524291992,NONE: 1AFE,43.7011871337891,-72.2873382568359,NONE: 4760,43.7034759521484,-72.2854690551758,NONE: 05AD,43.7030677795410,-72.2841186523438,NONE: 1819,43.7010498046875,-72.2879714965820,NONE: 002C,43.7007408142090,-72.2884368896484,NONE: 268B,43.7009239196777,-72.2893524169922,NONE: 6C8A,43.7012481689453,-72.2894134521484,NONE: 17E2,43.7023735046387,-72.2888946533203,NONE: AEA3,43.7021903991699,-72.2894821166992,NONE: 2C15,43.7031173706055,-72.2903671264648,NONE: 4C24,43.7026977539062,-72.2895965576172,NONE:
+: [129.170.213.207@40863]: GA_STATUS|D19D9|12345678|lapis|007|1
+: [129.170.213.207@40863]: GA_STATUS|D19D9|12345678|lapis|007|1
+: [129.170.213.207@40863]: GA_STATUS|D19D9|12345678|lapis|007|1
+
+
+
+### Invalid messages to the Guide Agent:
+
+
+
+
+
+
+### Sendint hints:
+
