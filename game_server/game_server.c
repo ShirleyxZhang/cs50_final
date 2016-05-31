@@ -1099,7 +1099,7 @@ static bool validate_ga_message(struct sockaddr_in them,char* gameid,char* guide
 	//found guideagents ID does not match the given team's guide's ID
 	team_t* found_team = (team_t*)list_find(teamlist,teamname);
 	if (found_team != NULL){
-		if(strcmp(found_team->GA->guideid,guideid) != 0)){
+		if((strcmp(found_team->GA->guideid,guideid)) != 0){
 			free(response);
 			return false;
 		}
