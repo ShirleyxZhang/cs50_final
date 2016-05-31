@@ -6,9 +6,17 @@
  * Game Server. 
  *
  * Usage: 
- * ./guide [-v] teamName playerName GShost GSport
+ *    ./guide [-v] teamName playerName GShost GSport
+ * 
+ * Upon receipt of valid command line parameters, Guide Agent sets up a socket.
+ * It joins a game by sending a message to the Game Server, and then it listens
+ * for input from stdin and the socket. Input from the socket includes game
+ * updates from the Game Server and "Game Over" notifications from the Game 
+ * Sever. Input from stdin includes hints that the Guide Agent enters to send
+ * to one of its Field Agents. It sends these hints via formatted messages to
+ * the Game Server.
  *
- * Drew Waterman (Team Lapis), May 2016
+ * Team Lapis (Drew Waterman, Deven Orie, Shirley Zhang), May 2016
  *
  * code for socket setup (createSocket), handling stdin (handleStdin), and 
  * handling information sent by the socket (handleSocket) based on Professor 
@@ -30,41 +38,43 @@
 #include "../common/file.h"
 #include "../lib/list/list.h"
 #include "../lib/bag/bag.h"
-#include "../lib/counters/counters.h"
 
+/* Struct used to hold information about code drops
+ * in messages sent by the Game Server */
 typedef struct codedrop {
-  char *status;
-  char *hexcode;
+  char *hexcode;   // the ID of each code
   char *latitude;
   char *longitude;
-  char *teamname;
+  char *teamname;  // name of the team that neutralized the code drop; "NONE",
+                   // if it has not yet been neutralized
 } codedrop_t;
 
 
 typedef struct FA {
-  char *teamname;
-  char *address;
-  bool capture;
-  char *pebbleid;
-  char *name;
-  char *latitude;
-  char *longitude;
-  char *contact;
+  char *teamname;  // name of the field agent's team
+  bool capture;    // true if the agent has been captured, false if not
+  char *pebbleid;  
+  char *name;      // name of the field agent
+  char *latitude;  // field agent's current latitude
+  char *longitude; // field agent's current longitude
+  char *contact;   // seconds since last contact with the game server
 } FA_t;
 
+
+/* Struct used to hold "records" for each team when printing the end game
+ * statistics upon the receipt of a GAME_OVER message from the game server */
 typedef struct recordStruct {
-  char *teamName;
-  char *numPlayers;
-  char *numCaptures;
-  char *numCaptured;
-  char *numNeutralized;
+  char *teamName;       // name of the team whose record we are printing
+  char *numPlayers;     // total number of player ever on team
+  char *numCaptures;    // total number of other players captured by this team
+  char *numCaptured;    // number of players on this team who were captured
+  char *numNeutralized; // number of code drops neutralized by this team
 } recordStruct_t;
 
 
 
 static int createSocket(int argc, char *argv[], struct sockaddr_in *gsp,
 			int logSwitch, int n);
-bool isNumber(const char *arg);
 char *getGuideID(void);
 void sendFirstMessage(char *guideID, char *teamName, char *playerName,
 		      int comm_sock, struct sockaddr_in gs);
@@ -72,25 +82,26 @@ static int handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 			char **gameID, FILE *fp, int logSwitch);
 char *handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 		  char *teamName);
-void printPebbleIDs(void *arg, char *key, void *data, void *option);
-void getNumAgents(void *arg, char *key, void *data, void *option);
-void deletefunc(void *data);
 bag_t *getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch);
 bag_t *getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch);
 int printGameOver(char *gameID, FILE *fp, int logSwitch);
 int sendStatusRequest(char *gameID, char *guideID, char *teamName,
-            char *playerName, int comm_sock, const struct sockaddr *gsp);
+		 char *playerName, int comm_sock, const struct sockaddr *gsp);
+void printPebbleIDs(void *arg, char *key, void *data, void *option);
+void getNumAgents(void *arg, char *key, void *data, void *option);
+bool isNumber(const char *arg);
+void deletefunc(void *data);
 void printTime(FILE *fp);
 void deleteNodes(void *arg, char *key, void *data, void *option);
 void freeBag(bag_t *bag);
 
 
+// size of buffer when reading from stdin or socket
 static int BUFSIZE = 8000;
 
 
-
 int main(int argc, char *argv[]) {
-
+  
   // Represents whether or not the -v switch was used
   // Default is 0 if the switch was not called by the user, and 1 if it was.
   int logSwitch = 0;
@@ -135,7 +146,6 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   
-
   // assign the team name input by the user to a variable
   // position of this team name on the command line varies depending
   // on how many switches were called
@@ -253,7 +263,7 @@ int main(int argc, char *argv[]) {
 	    // Make sure that malloc did not return NULL
 	    if (sendHint == NULL) {
 	      printf("Error allocating memory for message.\n");
-	      exit(5);
+	      exit(3);
 	    }
 
 	    // Combine the necessary information into one sting to send to
@@ -304,10 +314,7 @@ int main(int argc, char *argv[]) {
   putchar('\n');
   fclose(logp);
   exit(0);
-
 }
-
-
 
 
 
@@ -334,7 +341,7 @@ static int createSocket(int argc, char *argv[],
   struct hostent *hostp = gethostbyname(GShost);
   if (hostp == NULL) {
     printf("Error: unknown host %s\n", GShost);
-    exit(3);
+    exit(2);
   }
 
   // Initialize fields of the server address
@@ -346,13 +353,11 @@ static int createSocket(int argc, char *argv[],
   int comm_sock = socket(AF_INET, SOCK_DGRAM, 0);
   if (comm_sock < 0) {
     printf("Error opening datagram socket\n");
-    exit(2);
+    exit(4);
   }
 
   return comm_sock;
 }
-
-
 
 
 
@@ -427,12 +432,11 @@ void sendFirstMessage(char *guideID, char *teamName, char *playerName,
   // send the message
   if (sendto(comm_sock, message, strlen(message), 0, (struct sockaddr *) &gs, sizeof(gs)) < 0) {
     printf("Error sending startup message\n");
-    exit(4);
+    exit(5);
   }
 
   printf("Sent first message to the game server to join the game.\n");
   free(message);
-
 }
 
 
@@ -610,12 +614,16 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	    // valid message it gets from the game server
 	    *gameID = malloc(strlen(ID) + 1);
 	    strcpy(*gameID, ID);
+	    if (logSwitch == 1)
+	      printTime(fp);
 	    fprintf(fp, "Guide agent received first message from game ");
 	    fprintf(fp, "server. The ID of this game is %s\n", *gameID);
 	    printf("Joined a game!\n");
 	  }
 	  else if (strcmp(ID, *gameID) != 0) {
 	    // the message we just received contains a different gameID
+	    if (logSwitch == 1)
+	      printTime(fp);
 	    fprintf(fp, "Guide agent received a message from a different ");
 	    fprintf(fp, "game and ignored it. ");
 	    fprintf(fp, "The ID of this game was %s\n", ID);
@@ -835,7 +843,7 @@ char *handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list,
   // num keeps track of the number of active agents on the guide's team
   int num = 0;
   // iterate through our list of total field agents to find num
-  list_iterate(list, getNumAgents, &num, NULL);
+  list_iterate(list, getNumAgents, &num, teamName);
   
   fflush(stdout);
 
@@ -868,6 +876,7 @@ char *handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 
   // If the user entered a blank line, ignore it.
   while (strcmp(pebble, "") == 0) {
+    free(pebble);
     pebble = readline(stdin);
     if (pebble == NULL) {
       free(hint);
@@ -904,15 +913,18 @@ getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch)
   // FABag holds field agent structs, which we make using the info
   // in each "agent" string from the agentBag
   bag_t *FABag = bag_new();
+  
+  char *agent; // keeps track of each colon-separated agent subfield
+               // held inside the agentBag
 
-  /* Extract each colon-separated agent subfield from the agentBag
+  /* Extract each colon-separated agent subfield from the agentBag 
    * and parse it, assigning its comma-separated subfields to
    * FA members */
-  
-  char *agent;
-  
   while ((agent = bag_extract(agentBag)) != NULL) {
+
     FA_t *FA = malloc(sizeof(struct FA));
+
+    // Check to make sure there were no memory allocation problems
     if (FA == NULL) {
       printf("Error allocating memory.\n");
       bag_delete(agentBag);
@@ -920,7 +932,8 @@ getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch)
       return NULL;
     }
 
-    // srtok the next field
+    // srtok the next field to get the pebbleID. If there were any problems,
+    // free memory associated with the bags and FA structs
     char *pebbleID = strtok(agent, ", ");
     if (pebbleID == NULL) {
       if (logSwitch == 1)
@@ -935,7 +948,10 @@ getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch)
     // If there were no problems, assign the correlated FA field
     // to the value we just strtok'd
     FA->pebbleid = pebbleID;
+    
 
+    // Repeat the above process for the rest of the comma-separated subfields
+    
     char *teamName = strtok(NULL, ", ");
     if (teamName == NULL) {
       if (logSwitch == 1)
@@ -1028,25 +1044,39 @@ getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch)
     }
     FA->contact = secondsSinceLastContact;
 
+    // If the fields for all of the agent information were valid, we finally
+    // insert the FA struct that we made into the FABag
     bag_insert(FABag, FA);
-    //    list_insert(list, FA->pebbleid, FA);
   }
+  // Delete the old bag since it's empty
   bag_delete(agentBag);
+  // Return the bag full of FA structs
   return(FABag);
 }
 
 
-
-
+/*********************** getCodedrops() **********************/
+/* Takes a bag of strings of colon-separated code drop fields from the
+ * GAME_STATUS message from the Game Server. It parses and validate the 
+ * message, returning a NULL pointer if the message was invalid in any
+ * way. If the message was valid, it returns a bag of codedrop structs,
+ * with members whose values correspond to the information sent in the 
+ * GAME_STATUS message.
+ */
 bag_t *
 getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch)
 {
-  bag_t *CDBag = bag_new();
-  char *codedrop;
-  codedrop_t *cd;
-  
+  bag_t *CDBag = bag_new();  // bag to hold codedrop structs
+  char *codedrop;            // the codedrop field we are parsing
+  codedrop_t *cd;            // codedrop struct whose members we are defining
+
+  /* Extract the codedrop strings out of the codedropBag until there are none
+   * left, or until we find and error and return NULL. Parse each string
+   * and assign its value the corresponding member of the codedrop struct.
+   */
   while ((codedrop = bag_extract(codedropBag)) != NULL) {
 
+    // Malloc space for cd, and check to make sure there were no errors
     cd = malloc(sizeof(codedrop_t));
     if (cd == NULL) {
       printf("Error locating memory.\n");
@@ -1055,6 +1085,9 @@ getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch)
       return NULL;
     }
 
+    // strtok the first comma-separated subfield, and check to make
+    // sure that strtok does not return NULL. If it does, retrun NULL so
+    // that we exit the function and free any memory that we need to
     char *codeID = strtok(codedrop, ", ");
     if (codeID == NULL) {
       if (logSwitch == 1)
@@ -1065,7 +1098,11 @@ getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch)
       bag_delete(CDBag);
       return NULL;
     }
+    // If there were no errors, assign the value to the respective member of
+    // the codedrop struct
     cd->hexcode = codeID;
+
+    /*Repeat the above process for the rest of the comma-separated subfields*/
 
     char* lat = strtok(NULL, ", ");
     if (lat == NULL) {
@@ -1103,20 +1140,37 @@ getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch)
     }
     cd->teamname = neutralizingTeam;
 
+    // Insert cd, the codedrop struct, into the CDBag if we didn't return
+    // because of an error in the message.
     bag_insert(CDBag, cd);
   }
 
+  // Delete the bag here because the program is done with it
   bag_delete(codedropBag);
 
+  // Return the new bag of codedrop structs
   return CDBag;
-
 }
 
 
 
 
-
+/*********************** printGameOver() **********************/
+/* Prints a game over message. Takes the current game ID, a file to log to,
+ * and an integer logSwitch that indicates the whether or not to log everything
+ * that happens in verbose or game mode. Parses the rest of the GAME_OVER
+ * message after the OPCODE and gameID fields using strtok. 
+ * Checks to make sure that the message received from the Game Server is valid.
+ * If the message is valid and the game over message is printed for the user
+ * to see, return 0 so the program can exit the game. Otherwise, return 1
+ * to indicate that there was some sort of problem parsing the message.
+ */
 int printGameOver(char *gameID, FILE *fp, int logSwitch) {
+
+  /* strtok the remaining two pipeline-separated fields and check to make
+   * sure they are not NULL. If they are, write to the log that we received
+   * a bad message and return 1, ignoring the rest of the GAME_OVER message.*/
+  
   char *numRemainingCodeDrops = strtok(NULL, "|");
   if (numRemainingCodeDrops == NULL) {
     if (logSwitch == 1) 
@@ -1133,8 +1187,12 @@ int printGameOver(char *gameID, FILE *fp, int logSwitch) {
     fprintf(fp, "ignored it.\n");
     return 1;
   }
-  
+
+  // Create a bag to hold the colon-separated subfields pertaining to the
+  // information about each team in the game.
   bag_t *recordBag = bag_new();
+
+  // strtok the first colon-separated subfield and make sure it is not NULL
   char *record = strtok(teamRecords, ":");
   if (record == NULL) {
     if (logSwitch == 1)
@@ -1144,7 +1202,9 @@ int printGameOver(char *gameID, FILE *fp, int logSwitch) {
     bag_delete(recordBag);
     return 1;
   }
-  
+
+  // For each team record in the message, strtok it and put the string in the
+  // recordBag so that we can further parse it later
   while (record != NULL) {
     bag_insert(recordBag, record);
     record = strtok(NULL, ":");
@@ -1154,29 +1214,52 @@ int printGameOver(char *gameID, FILE *fp, int logSwitch) {
   printf("Number of remaining unneutralized code drops is %s\n",
 	 numRemainingCodeDrops);
 
-  char *recordPrint = bag_extract(recordBag);
-  bag_t *recBag = bag_new();
   
+  // string consisting of a team's records that we need to parse further
+  char *recordPrint = bag_extract(recordBag);
+
+  // bag that holds record structs, which contain information about each
+  // team's statistics at the end of the game
+  bag_t *recBag = bag_new();
+
+  /* Go through all the strings that we temporarily stored in the recordBag,
+   * checking each field to make sure that the message is valid. If the
+   * field is valid, assign its value to the associated member in the record
+   * struct */
   while (recordPrint != NULL) {
 
+    // Malloc space for a new struct and check to make sure it is not NULL
     recordStruct_t *myRec = malloc(sizeof(recordStruct_t));
-    
+    if (myRec == NULL) {
+      if (logSwitch == 1)
+	printTime(fp);
+      fprintf(fp, "Error allocating memory.\n");
+      return 1;
+    }
+
+    // strtok the first field and make sure it is not NULL
     char *teamName = strtok(recordPrint, ", ");
     if (teamName == NULL) {
       if (logSwitch == 1)
 	printTime(fp);
-      fprintf(fp, "Guide Agent received a poorly-formatted message and ignored it.\n");
+      fprintf(fp, "Guide Agent received a poorly-formatted message and ");
+      fprintf(fp, "ignored it.\n");
       bag_delete(recordBag);
       bag_delete(recBag);
       return 1;
     }
+    // If the field wasn't NULL, assign its value to the appropriate member
+    // of the recordStruct
     myRec->teamName = teamName;
+
+    // Repeat the above process for the rest of the comma-separated subfields
     
     char *numPlayers = strtok(NULL, ", ");
     if (numPlayers == NULL) {
       if (logSwitch == 1)
 	printTime(fp);
-      fprintf(fp, "Guide Agent received a poorly-formatted message and ignored it.\n");
+      fprintf(fp, "Guide Agent received a poorly-formatted message and ");
+      fprintf(fp, "ignored it.\n");
       bag_delete(recordBag);
       bag_delete(recBag);
       return 1;
@@ -1187,7 +1270,8 @@ int printGameOver(char *gameID, FILE *fp, int logSwitch) {
     if (numCaptures == NULL) {
       if (logSwitch == 1)
 	printTime(fp);
-      fprintf(fp, "Guide Agent received a poorly-formatted message and ignored it.\n");
+      fprintf(fp, "Guide Agent received a poorly-formatted message and ");
+      fprintf(fp, "ignored it.\n");
       bag_delete(recordBag);
       bag_delete(recBag);
       return 1;
@@ -1199,7 +1283,8 @@ int printGameOver(char *gameID, FILE *fp, int logSwitch) {
     if (numCaptured == NULL) {
       if (logSwitch == 1)
 	printTime(fp);
-      fprintf(fp, "Guide Agent received a poorly-formatted message and ignored it.\n");
+      fprintf(fp, "Guide Agent received a poorly-formatted message and ");
+      fprintf(fp, "ignored it.\n");
       bag_delete(recordBag);
       bag_delete(recBag);
       return 1;
@@ -1210,17 +1295,24 @@ int printGameOver(char *gameID, FILE *fp, int logSwitch) {
     if (numNeutralized == NULL) {
       if (logSwitch == 1)
 	printTime(fp);
-      fprintf(fp, "Guide Agent received a poorly-formatted message and ignored it.\n");
+      fprintf(fp, "Guide Agent received a poorly-formatted message and ");
+      fprintf(fp, "ignored it.\n");
       bag_delete(recordBag);
       bag_delete(recBag);
       return 1;
     }
     myRec->numNeutralized = numNeutralized;
-    
-    recordPrint = bag_extract(recordBag);
+
+    // If we didn't return because of any errors, add myRec to the recBag
     bag_insert(recBag, myRec);
+
+    // Extract the next team record for parsing
+    recordPrint = bag_extract(recordBag);
   }
 
+  /*** print the information that we got from the Game Server in an 
+       appropriate format ***/
+  
   recordStruct_t *myRec;
   while ((myRec = bag_extract(recBag)) != NULL) {
     printf("Team %s:\n", myRec->teamName);
@@ -1230,17 +1322,103 @@ int printGameOver(char *gameID, FILE *fp, int logSwitch) {
     printf("   Neutralized %s code drops.\n", myRec->numNeutralized);
     free(myRec);
   }
-  
+
+  // Free the memory associated with the created bags
   bag_delete(recordBag);
   bag_delete(recBag);
   printf("Good game, everybody!");
   fflush(stdout);
-  return 0;
+  return 0; // return 0 to indicate that we received a valid GAME_OVER message
 }
 
 
 
 
+
+/*********************** sendStatusRequest() **********************/
+/* Takes 4 strings: gameID, guideID, teamName, and playerName, and it takes
+ * an int comm_sock and a const struct sockaddr *gsp. With this information,
+ * sendStatusRequest() sends a status request to the game server in a properly-
+ * formatted message with the OPCODE GA_STATUS.
+ */
+int sendStatusRequest(char *gameID, char *guideID, char *teamName,
+		  char *playerName, int comm_sock, const struct sockaddr *gsp)
+{
+  // allocate memory for the GA_STATUS message
+  char *request = malloc(16 + strlen(gameID) + strlen(guideID) +
+			 strlen(teamName) + strlen(playerName));
+
+  // Check to make sure there were no errors allocating memory
+  if (request == NULL) {
+    printf("Error\n");
+    return 3;
+  }
+
+  // Concatenate the string to send to the Game Server
+  sprintf(request, "GA_STATUS|%s|%s|%s|%s|1", gameID, guideID, teamName,
+	  playerName);
+
+  // Send the message
+  if (sendto(comm_sock, request, strlen(request), 0, (struct sockaddr *) gsp,
+	     sizeof(*gsp)) < 0){
+    perror("error sending datagram\n");
+    free(request);
+    return 5;
+  }
+
+  free(request);
+  return 0;      // return 0 if there were no problems
+}
+
+
+
+/*********************** printPebbleIDs() **********************/
+/* Used when iterating over a list of FA structs. 
+ * This function prints a list of pebble ID's belonging to active players on 
+ * the Guide Agent's team
+ */
+void printPebbleIDs(void *arg, char *key, void *data, void *option)
+{
+  FA_t *myAgent = data;
+  char *teamName = arg;
+
+  // Check to make sure the data is not NULL by some chance
+  if (myAgent != NULL) {
+    
+    // Print the pebble ID only if the Field Agent belongs to the Guide's team
+    // and has not been captured yet
+    if (myAgent->capture == false && strcmp(myAgent->teamname, teamName) == 0){
+      printf("%s ", key);
+      fflush(stdout);
+    }
+  }
+}
+
+
+
+/********************* getNumAgents() **********************/
+/* Used when iterating over a list of FA structs.
+ * Given a pointer to an integer as the void *arg argument, the function
+ * increments its value for every active agent on the Guide's team
+ */
+void getNumAgents(void *arg, char *key, void *data, void *option)
+{
+  int *numAgents = arg;
+  FA_t *current = data;
+  char *teamName = option;
+
+  // Only increment numAgent's value if the current agent has not been captured
+  // and is on the same team as the Guide Agent
+  if (current->capture == false && strcmp(teamName, current->teamname) == 0) {
+    (*numAgents)++;
+  }
+}
+
+
+/*********************** isNumber() **********************/
+/* Given a string, isNumber() return true if the string consists only of 
+ * digits, and it returns false if it contains any non-digit characters 
+ */
 bool isNumber(const char *arg)
 {
   for (int i = 0; i < strlen(arg); i++) {
@@ -1254,72 +1432,21 @@ bool isNumber(const char *arg)
 
 
 
-int sendStatusRequest(char *gameID, char *guideID, char *teamName,
-		  char *playerName, int comm_sock, const struct sockaddr *gsp)
-{
-  char *request = malloc(16 + strlen(gameID) + strlen(guideID) + strlen(teamName) + strlen(playerName));
-
-  if (request == NULL) {
-    printf("Error\n");
-    return 3;
-  }
-
-  sprintf(request, "GA_STATUS|%s|%s|%s|%s|1", gameID, guideID, teamName,
-	  playerName);
-
-  if (sendto(comm_sock, request, strlen(request), 0, (struct sockaddr *) gsp,
-	     sizeof(*gsp)) < 0){
-    perror("error sending datagram\n");
-    free(request);
-    return 5;
-  }
-
-  free(request);
-  return 0;
-}
-
-
-
-
-
-void printPebbleIDs(void *arg, char *key, void *data, void *option)
-{
-  FA_t *myAgent = data;
-  char* teamName = arg;
-
-  if (myAgent != NULL) {
-    if (myAgent->capture == false && strcmp(myAgent->teamname, teamName) == 0){
-      printf("%s ", key);
-      fflush(stdout);
-    }
-  }
-}
-
-
-
-
-void getNumAgents(void *arg, char *key, void *data, void *option)
-{
-  fflush(stdout);
-  int *numAgents = arg;
-  
-  FA_t *currentAgent = data;
-  
-  if (currentAgent->capture == false) {
-    (*numAgents)++;
-    fflush(stdout);
-  }
-}
-
-
-
+/********************* deletefunc() **********************/
+/* Used to help free memory for items in a list
+ * Pass deletefunc in as a parameter to list_new() for any list
+ * that will hold items that have malloc'd or calloc'd data
+ */
 void deletefunc(void *data)
 {
   if (data)
     free(data);
 }
 
-
+/********************* printTime() **********************/
+/* Given a file pointer, the function will print the current time onto a line
+ * of that file
+ */
 void printTime(FILE *fp)
 {
   time_t myTime = time(NULL);
@@ -1328,15 +1455,26 @@ void printTime(FILE *fp)
 }
 
 
-
-void deleteNodes(void *arg, char *key, void *data, void *option) {
+/********************* deleteNodes() **********************/
+/* This function "deletes" the nodes in a current list by setting the key
+ * for each of the existing nodes to "NONE". It does not actually delete the
+ * nodes or their data, but makes them invisible to our other functions in this
+ * program. The data in each of the nodes will still have to be freed later
+ * by the list_delete function.
+ */
+void deleteNodes(void *arg, char *key, void *data, void *option)
+{
   char **keyp = &key;
   *keyp = "NONE";
 }
 
 
 
-
+/********************* freeBag() **********************/
+/* This function is called whenever there are items still in a bag that needs
+ * to be freed. freeBag() extracts every item and frees its data so that we
+ * can later free the bag itself with no memory leaks.
+ */ 
 void freeBag(bag_t *bag)
 {
   void *bagItem;
