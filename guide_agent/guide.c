@@ -101,32 +101,7 @@ void freeBag(bag_t *bag);
 static int BUFSIZE = 8000;
 
 
-WINDOW *create_newwin(int height, int width, int starty, int startx);
-void destroy_win(WINDOW *local_win);
-
-
 int main(int argc, char *argv[]) {
-
-  /* WINDOW *my_win; */
-  /* int startx, starty, width, height; */
-
-  /* initscr();/\* Start curses mode *\/ */
-  /* cbreak();/\* Line buffering disabled, Pass on */
-  /* 	    * everty thing to me *\/ */
-  /* keypad(stdscr, TRUE);/\* I need that nifty F1 *\/ */
-
-  /* height = 3; */
-  /* width = 10; */
-  /* int row,col; */
-  /* getmaxyx(stdscr,row,col); */
-  /* //  mvprintw(row,(col-strlen(mesg)),"%s",mesg); */
-  /* starty = (LINES - height) / 2;/\* Calculating for a center placement *\/ */
-  /* startx = (COLS - width) / 2;/\* of the window*\/ */
-  /* refresh(); */
-
-  /* my_win = create_newwin(height, width, starty, startx); */
-
-  //  keypad(my_win, TRUE);
   
   // Represents whether or not the -v switch was used
   // Default is 0 if the switch was not called by the user, and 1 if it was.
@@ -204,19 +179,26 @@ int main(int argc, char *argv[]) {
 
   /***** ASCII stuff *****/
   
-  initscr();/* Start curses mode */
-  cbreak();/* Line buffering disabled, Pass on\
-            * everty thing to me */
-  keypad(stdscr, TRUE);/* I need that nifty F1 */
+  initscr();  // beginning of use of ASCII interface
+  cbreak();   // disable line buffering
 
+  // get the size of the user's window
   int row, col;
   getmaxyx(stdscr,row,col);
+
+  /* print some nifty messages just in case they're waiting for the game
+   * server for a long time */
   char *mesg = "Welcome to the game!";
   char *mesg2 = "Waiting on input from the game server.";
   char *mesg3 = "Please press enter to start.";
-  mvprintw(row/2 - 1, (col-strlen(mesg))/2, "%s", mesg);
-  mvprintw(row/2, (col-strlen(mesg2))/2, "%s", mesg2);
-  mvprintw(row/2 + 1, (col-strlen(mesg3))/2, "%s", mesg3);
+  char *instruct1 = "Then enter a hint to send to a field agent";
+  char *instruct2 = "Enter 'quit' to quit at any time.";
+  mvprintw(row/2 - 2, (col-strlen(mesg))/2, "%s", mesg);
+  mvprintw(row/2 - 1, (col-strlen(mesg2))/2, "%s", mesg2);
+  mvprintw(row/2, (col-strlen(mesg3))/2, "%s", mesg3);
+  mvprintw(row/2 + 1, (col-strlen(instruct1))/2, "%s", instruct1);
+  mvprintw(row/2 + 2, (col-strlen(instruct2))/2, "%s", instruct2);
+	   
   refresh();
   
   // open up a file to write the guide agent log to
@@ -236,16 +218,14 @@ int main(int argc, char *argv[]) {
   }
 
   // list to hold information about field agents
-  list_t *FAList = list_new(deletefunc);
+  list_t *pebbleList = list_new(deletefunc);
+
+  int pos = 0;  // line to print on with mvprintw
   
   /*** enter while loop that will run until the game ends ***/
   
   while (true) {
-    
-    char myString[BUFSIZE];
-    
-    getstr(myString);
-    
+        
     // for use with select()
     fd_set rfds;              // set of file descriptors we want to read
     struct timeval timeout;   // how long we're willing to wait
@@ -264,7 +244,7 @@ int main(int argc, char *argv[]) {
 
     if (select_response < 0) {
       // Some error occured
-      printf("Error\n");
+      mvprintw(pos++, 0, "Error\n");
       exit(7);
     }
     else if (select_response == 0) {
@@ -283,7 +263,7 @@ int main(int argc, char *argv[]) {
       if (FD_ISSET(0, &rfds)) {
 
 	// get the pebble ID and hint input into stdin by the user
-	char *idAndHint = handleStdin(comm_sock, &gs, FAList, teamName);
+	char *idAndHint = handleStdin(comm_sock, &gs, pebbleList, teamName);
 
 	// don't send a hint if handleStdin returned NULL; that means that
 	// there are no active agents on the guide's team to send hints to
@@ -299,9 +279,10 @@ int main(int argc, char *argv[]) {
 
 	  // If handleStdin returned "0", that means that the AF_INET did
 	  // not match
-	  else if (strcmp(idAndHint, "0") == 0)
-	    printf("Could not send the message to the Game Server.\n");
-
+	  else if (strcmp(idAndHint, "0") == 0) {
+	    mvprintw(pos++, 0, "Could not send the message to the Game Server.\n");
+	    refresh();
+	  }
 	  // Check to make sure we've joined a game that we can send hints to
 	  else if ((gameID != NULL)) {
 
@@ -328,15 +309,19 @@ int main(int argc, char *argv[]) {
 	      exit(5);  // exit if there were any errors
 	    }
 	    else {
-	      printf("Your hint was sent to the game server.\n");
+	      clear();
+	      char message[] = "Your hint was sent to the game server.\n";
+	      mvprintw(row/2, (col - strlen(message))/2, "%s", message);
+	      refresh();
 	      free(sendHint);
 	    }
 	    free(idAndHint);
 	  }
 	  else {
 	    // gameID is NULL, which means we haven't joined a game yet
-	    printf("You can't send hints until you've joined the game!\n");
-	    fflush(stdout);
+	    mvprintw(row/2, 0, "You can't send hints until you've joined the game!\n");
+	    refresh();
+	    fflush(stdout);	    
 	    free(idAndHint);
 	  }
 	}
@@ -345,24 +330,33 @@ int main(int argc, char *argv[]) {
       if (FD_ISSET(comm_sock, &rfds)) {
 
 	// handle the datagram coming in from the socket
-	if (handleSocket(comm_sock, &gs, FAList, &gameID, logp,
+	if (handleSocket(comm_sock, &gs, pebbleList, &gameID, logp,
 			 logSwitch) == 0) {	  
 	  // 0 means we received a GAME_OVER message
-	  break;
+	  if(logSwitch == 0)
+	    printTime(logp);
+	  fprintf(logp, "Game over!\n");
+	  char *goodbye = "Enter 'quit' to exit the game.";
+	  mvprintw(0, 0, "%s", goodbye);
 	}
-	printf("Enter a hint to send to a field agent.\n");
-	fflush(stdout);
+	else {
+	  char *instruction1 = "Enter a hint to send to a field agent, or";
+	  char *instruction2 = "enter 'quit' to quit.";
+	  mvprintw(pos, 0, "%s %s", instruction1, instruction2);
+	  refresh();
+	}
       }
     }
   }
   // free all memory we allocated before exiting
-  list_delete(FAList);
+  list_delete(pebbleList);
   free(guideID);
   if (gameID != NULL)
     free(gameID);
   close(comm_sock);
   putchar('\n');
   fclose(logp);
+  endwin();
   exit(0);
 }
 
@@ -595,37 +589,46 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	    fprintf(fp, "Received an invalid message and ignored it.\n");
 	    return 1;
 	  }
+
+	  int noAgents;
+	  bag_t *FABag = NULL;
 	  
-	  // Bag holds strings of each agent field for convenience so
-	  // we can strtok them later
-	  bag_t *agentBag = bag_new();
+	  if (strcmp(AllAgents, "NO_AGENTS") == 0) {
+	    noAgents = 1;
+	  }
+	  else {
+	    noAgents = 0;
+	    
+	    // Bag holds strings of each agent field for convenience so
+	    // we can strtok them later
+	    bag_t *agentBag = bag_new();
 
-	  // Agent represents the comma-separated subfield holding info
-	  // about individual agents
-	  char *agent = strtok(AllAgents, ":");
-	  if (agent == NULL) {
-	    if (logSwitch == 1) {
-	      printTime(fp);
-	      fprintf(fp, "%s\n", buf);
+	    // Agent represents the comma-separated subfield holding info
+	    // about individual agents
+	    char *agent = strtok(AllAgents, ":");
+	    if (agent == NULL) {
+	      if (logSwitch == 1) {
+		printTime(fp);
+		fprintf(fp, "%s\n", buf);
+	      }
+	      fprintf(fp, "Received an invalid message and ignored it.\n");
+	      return 1;
 	    }
-	    fprintf(fp, "Received an invalid message and ignored it.\n");
-	    return 1;
-	  }
-	  // Insert agent into the bag so we can extract it and strtok its
-	  // contents later
-	  bag_insert(agentBag, agent);
-
-	  // Strtok all the agent fields and put each in the bag
-	  while ((agent = strtok(NULL, ":")) != NULL) {
+	    // Insert agent into the bag so we can extract it and strtok its
+	    // contents later
 	    bag_insert(agentBag, agent);
+
+	    // Strtok all the agent fields and put each in the bag
+	    while ((agent = strtok(NULL, ":")) != NULL) {
+	      bag_insert(agentBag, agent);
+	    }
+
+	    // If the all of the agent fields are valid, get a bag of
+	    // field agent structs (see getAgents)
+	    FABag = getAgents(agentBag, list, fp, logSwitch);
+	    if (FABag == NULL)
+	      return 1;
 	  }
-
-	  // If the all of the agent fields are valid, get a bag of
-	  // field agent structs (see getAgents)
-	  bag_t *FABag = getAgents(agentBag, list, fp, logSwitch);
-	  if (FABag == NULL)
-	    return 1;
-
 	  // Bag to hold strtok'd code drop strings
 	  bag_t *codedropBag = bag_new();
 
@@ -635,6 +638,10 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	    if (logSwitch == 1)
 	      printTime(fp);
 	    fprintf(fp, "Received an invalid message and ignored it.\n");
+	    if (noAgents == 0)
+	      freeBag(FABag);
+	    bag_delete(FABag);
+	    bag_delete(codedropBag);
 	    return 1;	    
 	  }
 	  bag_insert(codedropBag, codedrop);
@@ -651,7 +658,8 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	  // If the pointer is NULL, that means there was a problem parsing
 	  // somewhere along the line during the getCodedrops function
 	  if (CDBag == NULL) {	    
-	    freeBag(FABag);
+	    if (noAgents == 0)
+	      freeBag(FABag);
 	    bag_delete(FABag);
 	    return 1;
 	  }
@@ -676,61 +684,101 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	    fprintf(fp, "Guide agent received a message from a different ");
 	    fprintf(fp, "game and ignored it. ");
 	    fprintf(fp, "The ID of this game was %s\n", ID);
+	    if (noAgents == 0)
+	      freeBag(FABag);
+	    bag_delete(FABag);
 	    return 1;
 	  }
 
 	  /***** Message has been validated; time to start printing *****/
+	  clear();
+
 	  mvprintw(pos++, 0, "%s:\n", OPCODE);
 	  mvprintw(pos++, 0, "Game ID is %s\n", ID);
-	  mvprintw(pos++, 0, "Agents:\n");
+
+	  list_iterate(list, deleteNodes, NULL, NULL);
 	  
-	  FA_t *myFA;
-
-	  // Extract all the FA structs from the FABag, and print the
-	  // information we stored in them
-	  while ((myFA = bag_extract(FABag)) != NULL) {
-		      
-	    mvprintw(0, 0, "   Agent %s from team %s: pebble ID is %s.\n",
-                   myFA->name, myFA->teamname, myFA->pebbleid);
-     	    refresh();
-	    
-	    if (myFA->capture == true)
-	      mvprintw(pos++, 5, "%s has been captured and is no longer active.\n", myFA->name);
-	    else
-	      mvprintw(pos++, 5, "%s has not been captured and is still active.\n", myFA->name);
-
-	      
-	    mvprintw(pos++, 5, "Last known latitude: %s. ", myFA->latitude);
-	    mvprintw(pos++, 5, "Last known longitude is: %s\n", myFA->longitude);
-	    mvprintw(pos++, 5, "Seconds since last contact is %s.\n", myFA->contact);
-
-	    // Insert the FA structs into the list for later access when
-	    // printing the pebbleID's for the Guide Agent to choose from
-	    list_insert(list, myFA->pebbleid, myFA);
+	  if (noAgents == 1) {
+	    mvprintw(pos++, 0, "There are currently no active agents.");
 	  }
+
+	  else {
+	    mvprintw(pos++, 0, "Locations of active agents:\n");
+	  
+	    FA_t *myFA;
+
+	    // Extract all the FA structs from the FABag, and print the
+	    // information we stored in them
+	    while ((myFA = bag_extract(FABag)) != NULL) {
+
+	      if (myFA->capture == false) {
+
+		mvprintw(pos++, 5, "Agent %s: team %s: %s,%s", myFA->name,
+			 myFA->teamname, myFA->latitude, myFA->longitude);
+
+		char *pebbleTeam = malloc(strlen(myFA->teamname) + 1);
+		strcpy(pebbleTeam, myFA->teamname);
+
+		// Insert the pebbleID's into the list for later access when
+		// printing the pebbleID's for the Guide Agent to choose from  
+		list_insert(list, myFA->pebbleid, pebbleTeam);
+	      }
+	      free(myFA);
+	    }
+	  }
+	
 	  bag_delete(FABag);
 		      
-	  mvprintw(pos++, 0, "Code drops:\n");
+	  mvprintw(pos++, 0, "Locations of active code drops:\n");
 
 	  codedrop_t *cd;
 
+	  int start = pos;
+	  
 	  // Extract all the codedrop structs from the CDBag, and print the
 	  // information we stored in them
 	  while((cd = bag_extract(CDBag)) != NULL) {
-	    
-	    mvprintw(pos++, 5, "Code drop %s: ", cd->hexcode);
-	    mvprintw(pos++, 5, "latitude is %s, ", cd->latitude);
-	    mvprintw(pos++, 5, "longitude is %s. ", cd->longitude);
-	    if (strcmp(cd->teamname, "NONE") == 0)
-	      mvprintw(pos++, 0, "Has not yet been neutralized.\n");
-	    else
-	      mvprintw(pos++, 0, "Neutralized by %s.\n", cd->teamname);
-	    fflush(stdout);
+
+	    // number of rows and columns on screen
+	    int row, col;
+	    getmaxyx(stdscr,row,col);
+
+	    // shorter version of FA's latitude for cleaner printing
+	    char shortLat[6];
+	    for (int i = 0; i < 6; i++) {
+	      shortLat[i] = (cd->latitude)[i];
+	    }
+
+	    // shorter version of FA's longitude for cleaner printing 
+	    char shortLong[6];
+	    for(int i = 0; i < 6; i++) {
+	      shortLong[i] = (cd->longitude)[i];
+	    }
+
+	    // Make sure we aren't about to print on a line that's past the
+	    // scope of the window
+	    if (pos < row) {
+	      if (strcmp(cd->teamname, "NONE") == 0)
+		mvprintw(pos++, 0, "Code drop %s: %s,%s; ", cd->hexcode,
+			 shortLat, shortLong);
+	    }
+	    else {
+	      if (strcmp(cd->teamname, "NONE") == 0) {
+		if (start == row - 1) {
+		  mvprintw(start, col/2, "And more...");
+		}
+		else 
+		  mvprintw(start++, col/2, "Code drop %s: %s,%s; ",
+			   cd->hexcode, shortLat, shortLong);
+	      }
+	    }
+	    refresh();
 	    free(cd);
 	  }
 	  refresh();
 	  bag_delete(CDBag);
    	}    
+
 	
 	/***** OPCODE is GAME_OVER *****/
 	
@@ -857,18 +905,27 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 char *handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 		  char *teamName)
 {
+  // clear the old screen so that our user doesn't type over any old text
+  clear();
+  
+  int pos = 1;
+  
+  char myString[BUFSIZE];
+
+  getstr(myString);
+
   // Get the message that the user typed in
-  char *hint = readline(stdin);
+  //  char *hint = readline(stdin);
+  char *hint = myString;
 
   // readline returns NULL if user entered command + D
   // return "EOF" to signal that the user wants to quit
-  if (hint == NULL) {
+  if (strcmp(hint, "quit") == 0) {
     return "EOF";
   }
 
   // User entered a blank line
   if (strcmp(hint, "") == 0) {
-    free(hint);
     return "blank";
   }
 
@@ -876,60 +933,53 @@ char *handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 
   // Let the user know if they entered a hint that was too long
   if (lineLength > 140) {
-    printf("Hint must be 140 characters or less!\n");
-    printf("Enter a hint to send to the game server.\n");
-    fflush(stdout);
-    free(hint);
+    mvprintw(pos++, 0, "Hint must be 140 characters or less!\n");
+    mvprintw(pos++, 0, "Enter a hint to send to the game server.\n");
+    refresh();
     return "140";
   }
 
   if (gsp->sin_family != AF_INET) {
-    printf("I am confused: server is not AF_INET.\n");
-    fflush(stdout);
-    free(hint);
+    mvprintw(pos++, 0, "I am confused: server is not AF_INET.\n");
+    refresh();
     return "0";
   }
 
-  // num keeps track of the number of active agents on the guide's team
-  int num = 0;
-  // iterate through our list of total field agents to find num
-  list_iterate(list, getNumAgents, &num, teamName);
   
-  fflush(stdout);
+  // Print prompts for the user to enter the pebble ID of one of their agents
+  mvprintw(pos++, 0, "Send hint to which field agent? ");
+  mvprintw(pos++, 0, "Your active agents have the following ID's:\n");
+  mvprintw(pos++, 0, "You may also enter '*' to send to all agents on your team.\n");
+  refresh();
 
-  // If num is 0, there are no active Field Agents on the guide's team
-  // Let them know that they don't have anyone to send hints to, and
-  // dont' send a GA_HINT message to the Game Server
-  if (num == 0) {
-    printf("You have no active agents to send hints to!\n");
-    free(hint);
-    fflush(stdout);
+  // num keeps track of the number of active agents on the guide's team
+  int num = pos;
+  
+  // Print a list of the pebble ID's of active agents on the guide's team 
+  list_iterate(list, printPebbleIDs, teamName, &pos);
+  
+  if (pos == num) {
+    mvprintw(pos++, 0, "Oops! You have no active agents to send hints to!\n");
+    refresh();
     return "NULL";
   }
 
-  // Print prompts for the user to enter the pebble ID of one of their agents
-  printf("Send hint to which field agent? ");
-  printf("Your active agents have the following ID's:\n");
-  printf("You may also enter '*' to send to all agents on your team.\n");
-
-  // Print a list of the pebble ID's of active agents on the guide's team
-  list_iterate(list, printPebbleIDs, teamName, NULL);
-  printf("\n");
+  pos++;
+  mvprintw(pos++, 0, "");
 
   // Read the line that the user enters
-  char *pebble = readline(stdin);
+  char pebble[BUFSIZE];
+  getstr(pebble);
+  
   // If user entered command + D, return
   if (pebble == NULL) {
-    free(hint);
     return "EOF";  
   }
 
   // If the user entered a blank line, ignore it.
   while (strcmp(pebble, "") == 0) {
-    free(pebble);
-    pebble = readline(stdin);
+    getstr(pebble);
     if (pebble == NULL) {
-      free(hint);
       return "EOF";
     }
   }
@@ -938,11 +988,9 @@ char *handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list,
   // to the game server. Concatenate a string with the format "pebbleID|hint"
   char* idAndHint = malloc(strlen(pebble) + strlen(hint) + 2);
   sprintf(idAndHint, "%s|%s", pebble, hint);
-  
-  fflush(stdout);
-  free(pebble);
-  free(hint);
 
+  pebble[0] = '\0';
+  
   return idAndHint;
 }
 
@@ -957,7 +1005,7 @@ char *handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list,
  */
 bag_t *
 getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch)
-{
+{ 
   list_iterate(list, deleteNodes, NULL, NULL);
 
   // FABag holds field agent structs, which we make using the info
@@ -971,7 +1019,7 @@ getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch)
    * and parse it, assigning its comma-separated subfields to
    * FA members */
   while ((agent = bag_extract(agentBag)) != NULL) {
-
+    
     FA_t *FA = malloc(sizeof(struct FA));
 
     // Check to make sure there were no memory allocation problems
@@ -1039,8 +1087,8 @@ getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch)
       bag_delete(FABag);
       return NULL;
     }
-    if (strcmp(playerStatus, "captured") == 0)
-      FA->capture = true;
+    if (strcmp(playerStatus, "captured") == 0) 
+      FA->capture = true;      
     else if (strcmp(playerStatus, "active") == 0)
       FA->capture = false;
     else {
@@ -1131,6 +1179,7 @@ getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch)
     if (cd == NULL) {
       printf("Error locating memory.\n");
       bag_delete(codedropBag);
+      freeBag(CDBag);
       bag_delete(CDBag);
       return NULL;
     }
@@ -1145,6 +1194,7 @@ getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch)
       fprintf(fp, "Received an invalid message and ignored it.\n");
       free(cd);
       bag_delete(codedropBag);
+      freeBag(CDBag);
       bag_delete(CDBag);
       return NULL;
     }
@@ -1161,6 +1211,7 @@ getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch)
       fprintf(fp, "Received an invalid message and ignored it.\n");
       free(cd);
       bag_delete(codedropBag);
+      freeBag(CDBag);
       bag_delete(CDBag);
       return NULL;
     }
@@ -1173,6 +1224,7 @@ getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch)
       fprintf(fp, "Received an invalid message and ignored it.\n");
       free(cd);
       bag_delete(codedropBag);
+      freeBag(CDBag);
       bag_delete(CDBag);
       return NULL;
     }
@@ -1185,6 +1237,7 @@ getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch)
       fprintf(fp, "Received an invalid message and ignored it.\n");
       free(cd);
       bag_delete(codedropBag);
+      freeBag(CDBag);
       bag_delete(CDBag);
       return NULL;
     }
@@ -1259,12 +1312,7 @@ int printGameOver(char *gameID, FILE *fp, int logSwitch) {
     bag_insert(recordBag, record);
     record = strtok(NULL, ":");
   }
-  
-  printf("GAME OVER! Here are the records for this game:\n");
-  printf("Number of remaining unneutralized code drops is %s\n",
-	 numRemainingCodeDrops);
-
-  
+    
   // string consisting of a team's records that we need to parse further
   char *recordPrint = bag_extract(recordBag);
 
@@ -1362,22 +1410,52 @@ int printGameOver(char *gameID, FILE *fp, int logSwitch) {
 
   /*** print the information that we got from the Game Server in an 
        appropriate format ***/
+
+  clear();
+
+  int pos = 1;
+  
+  mvprintw(pos++, 0, "GAME OVER! Here are the records for this game:\n");
+  mvprintw(pos++, 0, "Number of remaining unneutralized code drops is %s\n",
+	   numRemainingCodeDrops);
+
+  int row, col;
+  getmaxyx(stdscr,row,col);
+
+  int start = pos;
   
   recordStruct_t *myRec;
   while ((myRec = bag_extract(recBag)) != NULL) {
-    printf("Team %s:\n", myRec->teamName);
-    printf("   Total number of active players: %s\n", myRec->numPlayers);
-    printf("   Captured %s players from other teams.\n", myRec->numCaptures);
-    printf("   %s players on this team were captured.\n", myRec->numCaptured);
-    printf("   Neutralized %s code drops.\n", myRec->numNeutralized);
-    free(myRec);
+    if (pos < row) {
+      mvprintw(pos++, 0, "Team %s:\n", myRec->teamName);
+      mvprintw(pos++, 2, "Total number of active players: %s\n",
+	       myRec->numPlayers);
+      mvprintw(pos++, 2, "Captured %s players from other teams.\n",
+	       myRec->numCaptures);
+      mvprintw(pos++, 2, "%s players on this team were captured.\n",
+	       myRec->numCaptured);
+      mvprintw(pos++, 2, "Neutralized %s code drops\n", myRec->numNeutralized);
+    }
+    else {
+      int middle = (col/2) + 2;
+      mvprintw(start++, middle - 2, "Team %s:\n", myRec->teamName);
+      mvprintw(start++, middle, "Total number of active players: %s\n",
+	       myRec->numPlayers);
+      mvprintw(start++, middle, "Captured %s players from other teams.\n",
+	       myRec->numCaptures);
+      mvprintw(start++,middle, "%s players on this team were captured.\n",
+	       myRec->numCaptured);
+      mvprintw(start++,middle, "Neutralized %s code drops.\n",
+	       myRec->numNeutralized);
+    }    
+    free(myRec);    
   }
 
   // Free the memory associated with the created bags
   bag_delete(recordBag);
   bag_delete(recBag);
-  printf("Good game, everybody!");
-  fflush(stdout);
+  mvprintw(pos++, 0, "Good game, everybody!");
+  refresh();
   return 0; // return 0 to indicate that we received a valid GAME_OVER message
 }
 
@@ -1429,19 +1507,16 @@ int sendStatusRequest(char *gameID, char *guideID, char *teamName,
  */
 void printPebbleIDs(void *arg, char *key, void *data, void *option)
 {
-  FA_t *myAgent = data;
+  char *pebbleteam = data;
   char *teamName = arg;
-
-  // Check to make sure the data is not NULL by some chance
-  if (myAgent != NULL) {
+  int *pos = option;
     
     // Print the pebble ID only if the Field Agent belongs to the Guide's team
     // and has not been captured yet
-    if (myAgent->capture == false && strcmp(myAgent->teamname, teamName) == 0){
-      printf("%s ", key);
-      fflush(stdout);
-    }
-  }
+  if (strcmp(pebbleteam, teamName) == 0 && strcmp(key, "NONE") != 0){
+      mvprintw((*pos)++, 0, "%s ", key);
+      refresh();
+    }  
 }
 
 
@@ -1456,7 +1531,7 @@ void getNumAgents(void *arg, char *key, void *data, void *option)
   int *numAgents = arg;
   FA_t *current = data;
   char *teamName = option;
-
+  
   // Only increment numAgent's value if the current agent has not been captured
   // and is on the same team as the Guide Agent
   if (current->capture == false && strcmp(teamName, current->teamname) == 0) {
@@ -1515,7 +1590,7 @@ void printTime(FILE *fp)
 void deleteNodes(void *arg, char *key, void *data, void *option)
 {
   char **keyp = &key;
-  *keyp = "NONE";
+  strcpy((*keyp), "NONE");
 }
 
 
@@ -1531,43 +1606,4 @@ void freeBag(bag_t *bag)
 
   while ((bagItem = bag_extract(bag)) != NULL)
     free(bagItem);
-}
-
-
-
-
-
-
-WINDOW *create_newwin(int height, int width, int starty, int startx)
-{WINDOW *local_win;
-
-  local_win = newwin(height, width, starty, startx);
-  box(local_win, 0 , 0);/* 0, 0 gives default characters */
-  // * for the vertical and horizontal */
-  /* * lines*\/ */
-  wrefresh(local_win);/* Show that box */
-
-  return local_win;
-}
-
-void destroy_win(WINDOW *local_win)
-{
-  /* box(local_win, ' ', ' '); : This won't produce the desired
-   * result of erasing the window. It will leave it's four corners 
-   * and so an ugly remnant of window. 
-   */
-  wborder(local_win, ' ', ' ', ' ',' ',' ',' ',' ',' ');
-  /* The parameters taken are 
-   * 1. win: the window on which to operate
-   * 2. ls: character to be used for the left side of the window 
-   * 3. rs: character to be used for the right side of the window 
-   * 4. ts: character to be used for the top side of the window 
-   * 5. bs: character to be used for the bottom side of the window 
-   * 6. tl: character to be used for the top left corner of the window 
-   * 7. tr: character to be used for the top right corner of the window 
-   * 8. bl: character to be used for the bottom left corner of the window 
-   * 9. br: character to be used for the bottom right corner of the window
-   */
-  wrefresh(local_win);
-  delwin(local_win);
 }
