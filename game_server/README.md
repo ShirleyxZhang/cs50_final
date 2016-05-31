@@ -1,6 +1,9 @@
 ##README for game_server
 
-Compliling : Use makefile, call "make" in the game_server directory 
+Compliling : Use makefile, call "make" in the top level (project-starter-kit) directory 
+
+**Description**
+The game server is the communication middleman between the pebble and the guide agent. It is responsible for directing the hints from GAs to appropriate FAs, giving games status info, game end info to 
 
 **Example command line**  
 ./game_server mycodedrops 23383
@@ -8,6 +11,7 @@ Compliling : Use makefile, call "make" in the game_server directory
 **Assumptions:**
 - switches must come before other arguments  
 - the codedrop file follows the strict format in the example
+- Any new agents to the game must initially request a status update as this give them the needed gameid
 
 **Exit status**  
 0- success  
@@ -20,6 +24,8 @@ Compliling : Use makefile, call "make" in the game_server directory
 **limitations:**  
 - If an unknown FA sends in request to capture the message will be ignored  
 - multiple errors in one message will only notify one error
+- The game eventually ends only after the timer expires AND another datagram comes in, else it seems to be running overtime
+- THE game status to guideid has slight formatting differences to protocol i.e. there will be an extra colon. But this codes not affect the way it communicates with guide agent.
 
 **Extensions**  
 3 points: Compute the distance between two lat/long points with the proper equations, allowing the game to be played over much larger distances than our little campus.
