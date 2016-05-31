@@ -3,7 +3,7 @@
 Compliling : Use makefile, call "make" in the top level (project-starter-kit) directory 
 
 **Description**
-The game server is the communication middleman between the pebble and the guide agent. It is responsible for directing the hints from GAs to appropriate FAs, giving games status info, game end info to 
+The game server is the communication middleman between the pebble and the guide agent. It is responsible for directing the hints from GAs to appropriate FAs, giving games status info to fa and ga upon request, updateing all game state information including the last time of contact for all players, player id, player name, team names, neutralized number of codes per team etc. When agem ends either all codedrops have been neutralized or time runs out it sends game end info to all players.
 
 **Example command line**  
 ./game_server mycodedrops 23383
