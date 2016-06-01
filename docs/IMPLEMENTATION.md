@@ -171,45 +171,61 @@ Once captured Player is made Inactive(PlayerList)
 
 ***** Guide Agent *****
 
-1) Program checks to make sure that the number of arguments is correct, and
-   checks to see if -log=raw switch was input as a command-line argument
+1) Program checks to make sure that the number of arguments is correct and
+   parses the argument, and checks to see if the user used the -v option
 
-2) const char *playerName getPlayerName(void) -- prompts the user to enter a
-   player name for the guide agent. If the user does not enter a valid
-   username, the function keeps prompting the user until they enter a good one,
-   at which point it assigns the guide agent that name and stops prompting.
+2) Program calls getGuideID() -- prompts the user to enter a 8-digit
+   hexadecimal ID for the guide agent. If the user does not enter a valid ID,
+   the function keeps prompting the user until they enter a good one, at which
+   point it assigns the guide agent that ID and stops prompting.
 
-3) const char *getGuideID(void) -- does almost the same thing as getPlayerName,
-   except prompts the user for an ID consisting of 8 hexadecimal characters
+3) startASCII -- calls the necessary functions to start the ASCII interface and
+   prints a welcoming message that the Guide Agents sees until the program
+   receives input from the socket.
 
-4) static int createSocket(const int argc, const char *argv[], struct
-   sockaddr_in *gsp, int logSwitch)  -- uses command-line arguments to set up
-   socket
+4) Create a socket using the GShost and GSport command line arguments.
 
-5) Send the initial message to the game server announcing the guide agent’s
-   presence and requesting an update, and write to the log
+5) Send a message to the Game Server to announce the Guide Agent's presence and
+   join the game.
+
+6) Open up a file for logging and initialize pebbleList, a list that will hold
+   pebble ID's as keys and the corresponding Field Agent's team name as data.
 
 6) Wait in an infinite while loop for datagrams from the game server and for
    input from the guide agent simultaneously.
-   
-     a. if a datagram comes in from the game server:
-   
-               i. Parse the message
-         
-               ii. If it’s the first message received, launch the graphical
-         interface overlaid on a campus map
-         
-               iii. Update the appropriate interface from the information from
-         the status updates from the game server and write to the log
+     * If a datagram comes in from the game server:
+       	  * Parse the message
+	  * Ignore any messages with OPCODES that the program does not
+	    recognize (anything other than GAME_STATUS, GAME_OVER and
+	    GS_RESPONSE)
+	  * If the message is valid (i.e. it contains all of the expected
+	    fields) and is a GAME_STATUS message:
+	    * If it’s the first message received, store the game ID relayed in
+	      the message into a gameID variable
+            * Update the appropriate interface from the information from the
+	      status update from the game server
+	  * If the message is valide and is a GAME_OVER message:
+	    * Print the relevant stastistics that were sent in the message, and
+	      tell the user to exit the game.
+          * If the message is not valid, ignore it and don't print anything to
+	    the user interface
+     
+     * If a datagram comes in from the guide agent/stdin, the user either wants
+       to send a hint or exit the program
+       	  * If the user entered 'quit', exit the interface and quit the program
+       	  * Otherwise, they entered a hint, so check to make sure the hint is
+	    valid (is not too long, is not a blank line)
+	  * If it is, print out a list of pebble ID's belonging to active Field
+	    Agents on the Guide's team. If there are none, tell the user and
+	    don't send the hint. Otherwise, print out the list and have the
+	    user enter in the pebbleID of the agent they want to send the hint
+	    to.
+	  * Then send the hint in an appropriate GA_HINT message to the Game
+	    Server
 
-         iv. If the game is over, notify field agents that game is over,
-         print appropriate end-of-game statistics, write to the log that
-         the game has ended, and exit
-         
-   b. If a datagram comes in from the guide agent/stdin, send an
-      appropriate message to the game server so that hints can be then
-      sent to the field agent
-
-7) Clean up any malloced memory that has not yet been freed and close the
-   socket. 
+7) For every message that is sent/received in the game, log the activity to a
+   log file, guideagent.log.
+   
+8) When the user exits the game, clean up any malloced memory that has not yet
+   been freed and close the socket and the log file. 
 
