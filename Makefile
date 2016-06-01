@@ -2,20 +2,22 @@
 
 MAKE = make
 
-# These targets do not produce real "targets"
+These targets do not produce real "targets"
 .PHONY: all clean start-proxy stop-proxy
 
 ############## default: make all libs and programs ##########
 
 all: 
 	@echo "Making everything..."
-	$(MAKE) -C field_agent
-	$(MAKE) -C guide_agent
-	$(MAKE) -C game_server
+	
+	cd lib; $(MAKE)
+	cd common; $(MAKE)
+	cd game_server; $(MAKE)
+	cd guide_agent; $(MAKE)
 
 ########################### proxy ###########################
 
-# Start the proxy running - add flags as desired. Options: -all, -fa2gs, -gs2fa
+Start the proxy running - add flags as desired. Options: -all, -fa2gs, -gs2fa
 start-proxy: proxy/proxy
 	@cd proxy; node proxy
 
@@ -31,7 +33,10 @@ install-proxy-deps:
 
 clean:
 	@echo "Cleaning everything..."
-	$(MAKE) -C field_agent clean
-	$(MAKE) -C guide_agent clean
-	$(MAKE) -C game_server clean
-	rm -f *~ *.o
+	rm -f *~
+	rm -f *.o
+	cd lib; $(MAKE) clean
+	cd common; $(MAKE) clean
+	cd field_agent; $(MAKE) clean
+	cd guide_agent; $(MAKE) clean
+	cd game_server; $(MAKE) clean
