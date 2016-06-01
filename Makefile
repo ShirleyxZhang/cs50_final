@@ -12,8 +12,6 @@ all:
 	$(MAKE) -C field_agent
 	$(MAKE) -C guide_agent
 	$(MAKE) -C game_server
-	$(MAKE) -C common
-	$(MAKE) -c lib
 
 ########################### proxy ###########################
 
@@ -36,6 +34,4 @@ clean:
 	$(MAKE) -C field_agent clean
 	$(MAKE) -C guide_agent clean
 	$(MAKE) -C game_server clean
-	$(MAKE) -C common
-	$(MAKE) -c lib
 	rm -f *~ *.o
