@@ -163,21 +163,21 @@ To test the Guide Agent, we used the assistance of the chatserver program provid
 
 ## Testing invalid command-line parameters:
 
-   [waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide 1
-   		   Error: incorrect number of arguments.
-		   	  Usage: ./guide [-v] teamName playerName GShost GSport
-			  	 [waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide 1 2
-				 		 Error: incorrect number of arguments.
-						 	Usage: ./guide [-v] teamName playerName GShost GSport
-							       [waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide 1 2 3
-							       		       Error: incorrect number of arguments.
-									       	      Usage: ./guide [-v] teamName playerName GShost GSport
-										      	     [waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide 1 2 3 4
-											     		     What is the guide's ID?: 12341234
-													     	  Error sending startup message
-														  	[waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide lapis 007 host port
-																	What is the guide's ID?: 12341234
-																	     Port number can only consist of integers.
+[waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide 1  
+Error: incorrect number of arguments.  
+Usage: ./guide [-v] teamName playerName GShost GSport  
+[waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide 1 2  
+Error: incorrect number of arguments.  
+Usage: ./guide [-v] teamName playerName GShost GSport  
+[waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide 1 2 3  
+Error: incorrect number of arguments.  
+Usage: ./guide [-v] teamName playerName GShost GSport  
+[waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide 1 2 3 4  
+What is the guide's ID?: 12341234  
+Error sending startup message  
+[waterman@moose ~/cs50/project/lapis/guide_agent]$ ./guide lapis 007 host port  
+What is the guide's ID?: 12341234  
+Port number can only consist of integers.  
 
 
 
@@ -193,60 +193,61 @@ The program prompts the user for an ID.
          ./guide -v lapis 007 10.31.39.63 56605
 	 	      What is the guide's ID?:
 		      We enter a valid 8-digit hexadecimal ID, and the program takes us to an ASCII interface.
-		      This is what pops up on the screen:
+  
+This is what pops up on the screen:
 
                              Unable to join a game.
-			                            Please enter 'quit' and try again.
+		      Please enter 'quit' and try again.
 
 
 When we press enter, it takes us to a blank screen.
 Let's enter a GAME_STATUS message through the chatserver to the Guide Agent. The Guide Agent gets the message, displays the following, and sends periodic status requests to the Game Server every 15 seconds.
 
-      Enter a hint to send to a field agent, or enter 'quit' to quit.
-      	    Game ID is D19D9
-	    	 Locations of active agents:
-		 	        Agent FA1: team lapis: 8.000000,8.000000
-				           Agent FA2: team TEAM1: 8.000000,8.000000
-					   	      Agent FA5: team TEAM2: 8.000000,8.000000
-						      	    Locations of active code drops:
-							    	      Code drop 68A6: 43.705,-72.29;
-								      	   Code drop B3EB: 43.708,-72.28;
-									   	Code drop 2CA3: 43.706,-72.28;
-										     Code drop 9231: 43.705,-72.28;
-										     	  Code drop 053F: 43.702,-72.28;
-											       Code drop 1AFE: 43.701,-72.28;
-											       	    Code drop 4760: 43.703,-72.28;
-												    	 Code drop 05AD: 43.703,-72.28;
-													      Code drop 1819: 43.701,-72.28;
-													      	   Code drop 002C: 43.700,-72.28;
-														   	Code drop 268B: 43.700,-72.28;
-															     Code drop 6C8A: 43.701,-72.28;
-															     	  Code drop 17E2: 43.702,-72.28;
-																       Code drop AEA3: 43.702,-72.28;
-																       	    Code drop 2C15: 43.703,-72.29;
-																	    	 Code drop 4C24: 43.702,-72.28;
+     Enter a hint to send to a field agent, or enter 'quit' to quit.
+     Game ID is D19D9
+     Locations of active agents:
+     Agent FA1: team lapis: 8.000000,8.000000
+     Agent FA2: team TEAM1: 8.000000,8.000000
+     Agent FA5: team TEAM2: 8.000000,8.000000
+     Locations of active code drops:
+     Code drop 68A6: 43.705,-72.29;
+     Code drop B3EB: 43.708,-72.28;
+     Code drop 2CA3: 43.706,-72.28;
+     Code drop 9231: 43.705,-72.28;
+     Code drop 053F: 43.702,-72.28;
+     Code drop 1AFE: 43.701,-72.28;
+     Code drop 4760: 43.703,-72.28;
+     Code drop 05AD: 43.703,-72.28;
+     Code drop 1819: 43.701,-72.28;
+     Code drop 002C: 43.700,-72.28;
+     Code drop 268B: 43.700,-72.28;
+     Code drop 6C8A: 43.701,-72.28;
+     Code drop 17E2: 43.702,-72.28;
+     Code drop AEA3: 43.702,-72.28;
+     Code drop 2C15: 43.703,-72.29;
+     Code drop 4C24: 43.702,-72.28;
 
 
 ##Sending a hint:
 When the user starts typing, the screen clears so the user can see what they are typing in their hint. When we enter "Agent FA1, good job!" as a hint to send, the following appears:
 
      Agent FA1, good job!
-     	   Send hint to which field agent?
-	   	Your active agents have the following ID's:
-		     You may also enter '*' to send to all agents on your team.
-		     	 fa1ID
+     Send hint to which field agent?
+     Your active agents have the following ID's:
+     You may also enter '*' to send to all agents on your team.
+     fa1ID
 
 
 Then the user types in fa1ID:
 
 
      Agent FA1, good     job!
-     	   Send hint to which field agent?
-	   	Your active agents have the following ID's:
-		     You may also enter '*' to send to all agents on your team.
-		     	 fa1ID
+     Send hint to which field agent?
+     Your active agents have the following ID's:
+     You may also enter '*' to send to all agents on your team.
+     fa1ID
 
-			 fa1ID
+     fa1ID
 
 
 
@@ -259,37 +260,37 @@ After pressing enter:
 
 Suppose that at some point, the field agent on the user's team gets captured. Agent FA1 on team lapis is no longer in the game:
 
-	Enter a hint to send to a field agent, or enter 'quit' to quit.
-	      Game ID is D19D9
-	      	   Locations of active agents:
-		   	          Agent FA2: team TEAM1: 8.000000,8.000000
-				  	     Agent FA5: team TEAM2: 8.000000,8.000000
-					     	   Locations of active code drops:
-						   	     Code drop 68A6: 43.705,-72.29;
-							     	  Code drop B3EB: 43.708,-72.28;
-								       Code drop 2CA3: 43.706,-72.28;
-								       	    Code drop 9231: 43.705,-72.28;
-									    	 Code drop 053F: 43.702,-72.28;
-										      Code drop 1AFE: 43.701,-72.28;
-										      	   Code drop 4760: 43.703,-72.28;
-											   	Code drop 05AD: 43.703,-72.28;
-												     Code drop 1819: 43.701,-72.28;
-												     	  Code drop 002C: 43.700,-72.28;
-													       Code drop 268B: 43.700,-72.28;
-													       	    Code drop 6C8A: 43.701,-72.28;
-														    	 Code drop 17E2: 43.702,-72.28;
-															      Code drop AEA3: 43.702,-72.28;
-															      	   Code drop 2C15: 43.703,-72.29;
-																   	Code drop 4C24: 43.702,-72.28;
+     Enter a hint to send to a field agent, or enter 'quit' to quit.
+     Game ID is D19D9
+     Locations of active agents:
+     Agent FA2: team TEAM1: 8.000000,8.000000
+     Agent FA5: team TEAM2: 8.000000,8.000000
+     Locations of active code drops:
+     Code drop 68A6: 43.705,-72.29;
+     Code drop B3EB: 43.708,-72.28;
+     Code drop 2CA3: 43.706,-72.28;
+     Code drop 9231: 43.705,-72.28;
+     Code drop 053F: 43.702,-72.28;
+     Code drop 1AFE: 43.701,-72.28;
+     Code drop 4760: 43.703,-72.28;
+     Code drop 05AD: 43.703,-72.28;
+     Code drop 1819: 43.701,-72.28;
+     Code drop 002C: 43.700,-72.28;
+     Code drop 268B: 43.700,-72.28;
+     Code drop 6C8A: 43.701,-72.28;
+     Code drop 17E2: 43.702,-72.28;
+     Code drop AEA3: 43.702,-72.28;
+     Code drop 2C15: 43.703,-72.29;
+     Code drop 4C24: 43.702,-72.28;
 
 
 Now, when the user tries to send a hint (they typed "hint" as their hint):
 
      hint
-	Send hint to which field agent?
-	     Your active agents have the following ID's:
-	     	  You may also enter '*' to send to all agents on your team.
-		      Oops! You have no active agents to send hints to!
+     Send hint to which field agent?
+     Your active agents have the following ID's:
+     You may also enter '*' to send to all agents on your team.
+     Oops! You have no active agents to send hints to!
 
 
 The program correctly does not let the user send a hint, since they have no active agents to send hints to.
@@ -299,91 +300,92 @@ The program correctly does not let the user send a hint, since they have no acti
 **Throughout this testing, the following is what we can see on the chatserver side:**
 
 
-	     GA\_STATUS|0|12345678|lapis|007|1
-	     *--sent by the Guide Agent, received by the Game Server (approximately every 15 seconds)*
+GA\_STATUS|0|12345678|lapis|007|1
+*--sent by the Guide Agent, received by the Game Server (approximately every 15 seconds)*
 
-	     : GAME\_STATUS|D19D9|fa1ID, lapis, FA1, active, 8.000000,8.000000,113:fa2ID,TEAM1,FA2,active,8.000000,8.000000,1\
-	       13:fa5ID,TEAM2,FA5,active,8.000000,8.000000,45:|: 68A6,43.7050819396973,-72.2949295043945,NONE: B3EB,43.7088928\
-	       							 222656,-72.2842864990234,NONE: 2CA3,43.7064704895020,-72.2871017456055,NONE: 9231,43.7051391601562,-72.28813934\
-								 				32617,NONE: 053F,43.7024879455566,-72.2865524291992,NONE: 1AFE,43.7011871337891,-72.2873382568359,NONE: 4760,43\
-													    .7034759521484,-72.2854690551758,NONE: 05AD,43.7030677795410,-72.2841186523438,NONE: 1819,43.7010498046875,-72.\
-													    					   2879714965820,NONE: 002C,43.7007408142090,-72.2884368896484,NONE: 268B,43.7009239196777,-72.2893524169922,NONE:\
-																		   		        6C8A,43.7012481689453,-72.2894134521484,NONE: 17E2,43.7023735046387,-72.2888946533203,NONE: AEA3,43.7021903991\
-																										      699,-72.2894821166992,NONE: 2C15,43.7031173706055,-72.2903671264648,NONE: 4C24,43.7026977539062,-72.28959655761\
-																										      				  72,NONE:
-																														  *-- sent by the Game Server, received by the Guide Agent*
+     : GAME\_STATUS|D19D9|fa1ID, lapis, FA1, active, 8.000000,8.000000,113:fa2ID,TEAM1,FA2,active,8.000000,8.0
+     0000,1\
+     13:fa5ID,TEAM2,FA5,active,8.000000,8.000000,45:|: 68A6,43.7050819396973,-72.2949295043945,NONE: B3EB,43.7
+     88928\
+     222656,-72.2842864990234,NONE: 2CA3,43.7064704895020,-72.2871017456055,NONE: 9231,43.7051391601562,-72.28
+     13934\
+     32617,NONE: 053F,43.7024879455566,-72.2865524291992,NONE: 1AFE,43.7011871337891,-72.2873382568359,NONE: 4
+     60,43\
+     .7034759521484,-72.2854690551758,NONE: 05AD,43.7030677795410,-72.2841186523438,NONE: 1819,43.701049804687
+     ,-72.\
+     2879714965820,NONE: 002C,43.7007408142090,-72.2884368896484,NONE: 268B,43.7009239196777,-72.2893524169922
+     NONE:\
+     6C8A,43.7012481689453,-72.2894134521484,NONE: 17E2,43.7023735046387,-72.2888946533203,NONE: AEA3,43.70219
+     3991\
+     699,-72.2894821166992,NONE: 2C15,43.7031173706055,-72.2903671264648,NONE: 4C24,43.7026977539062,-72.28959
+     55761\
+     72,NONE:  
+
+*-- sent by the Game Server, received by the Guide Agent*
 
 
-																														  GA_HINT|D19D9|12345678|lapis|007|fa1ID|Agent FA1, good job! -- sent by Guide Agent, received by Game Server
-																														  *-- send by the Guide Agent, received by the Game Server*
+     GA_HINT|D19D9|12345678|lapis|007|fa1ID|Agent FA1, good job! -- sent by Guide Agent, received by Game Server
+       
+*-- send by the Guide Agent, received by the Game Server*
 
-																														  GAME_STATUS|D19D9|fa1ID, lapis, FA1, captured, 8.000000,8.000000,113:fa2ID,TEAM1,FA2,active,8.000000,8.000000,1\
-																														  			   13:fa5ID,TEAM2,FA5,active,8.000000,8.000000,45:|: 68A6,43.7050819396973,-72.2949295043945,NONE: B3EB,43.7088928\
-																																	   						     222656,-72.2842864990234,NONE: 2CA3,43.7064704895020,-72.2871017456055,NONE: 9231,43.7051391601562,-72.28813934\
-																																							     				    32617,NONE: 053F,43.7024879455566,-72.2865524291992,NONE: 1AFE,43.7011871337891,-72.2873382568359,NONE: 4760,43\
-																																											    		.7034759521484,-72.2854690551758,NONE: 05AD,43.7030677795410,-72.2841186523438,NONE: 1819,43.7010498046875,-72.\
-																																																	       2879714965820,NONE: 002C,43.7007408142090,-72.2884368896484,NONE: 268B,43.7009239196777,-72.2893524169922,NONE:\
-																																																	       			    6C8A,43.7012481689453,-72.2894134521484,NONE: 17E2,43.7023735046387,-72.2888946533203,NONE: AEA3,43.7021903991\
-																																																				    						  699,-72.2894821166992,NONE: 2C15,43.7031173706055,-72.2903671264648,NONE: 4C24,43.7026977539062,-72.28959655761\
-																																																										  			      72,NONE:
-																																																													      *-- sent by Game Server, received by Guide Agent*
+     GAME_STATUS|D19D9|fa1ID, lapis, FA1, captured, 8.000000,8.000000,113:fa2ID,TEAM1,FA2,active,8.000000,8.000000,1\  
+     13:fa5ID,TEAM2,FA5,active,8.000000,8.000000,45:|: 68A6,43.7050819396973,-72.2949295043945,NONE: B3EB,43.7088928\
+     222656,-72.2842864990234,NONE: 2CA3,43.7064704895020,-72.2871017456055,NONE: 9231,43.7051391601562,-72.28813934\
+     32617,NONE: 053F,43.7024879455566,-72.2865524291992,NONE: 1AFE,43.7011871337891,-72.2873382568359,NONE: 4760,43\
+     .7034759521484,-72.2854690551758,NONE: 05AD,43.7030677795410,-72.2841186523438,NONE: 1819,43.7010498046875,-72.\
+     2879714965820,NONE: 002C,43.7007408142090,-72.2884368896484,NONE: 268B,43.7009239196777,-72.2893524169922,NONE:\
+     6C8A,43.7012481689453,-72.2894134521484,NONE: 17E2,43.7023735046387,-72.2888946533203,NONE: AEA3,43.7021903991\
+     699,-72.2894821166992,NONE: 2C15,43.7031173706055,-72.2903671264648,NONE: 4C24,43.7026977539062,-72.28959655761\
+     72,NONE:
+
+  
+*-- sent by Game Server, received by Guide Agent*
 
 
 ### Invalid messages to the Guide Agent:
 
 **Message with bad OPCODE:**
 
-	  GAME|D19D9|fa1ID, lapis, FA1, captured, 8.000000,8.000000,113:fa2ID,TEAM1,FA2,active,8.000000,8.000000,113:fa5I
-	  		    D,TEAM2,FA5,active,8.000000,8.000000,45:|: 68A6,43.7050819396973,-72.2949295043945,NONE
+	  GAME|D19D9|fa1ID, lapis, FA1, captured, 8.000000,8.000000,113:fa2ID,TEAM1,FA2,active,8.000000,8.000000,113:fa5ID,TEAM2,FA5,active,8.000000,8.000000,45:|: 68A6,43.7050819396973,-72.2949295043945,NONE
 
 **Message with no Game ID:**
 
-	  GAME\_STATUS||fa1ID, lapis, FA1, captured, 8.000000,8.000000,113:fa2ID,TEAM1,FA2,active,8.000000,8.000000,113:fa\
-	  		       5ID,TEAM2,FA5,active,8.000000,8.000000,45:|: 68A6,43.7050819396973,-72.2949295043945,NONE:
+	  GAME\_STATUS||fa1ID, lapis, FA1, captured, 8.000000,8.000000,113:fa2ID,TEAM1,FA2,active,8.000000,8.000000,113:fa5ID,TEAM2,FA5,active,8.000000,8.000000,45:|: 68A6,43.7050819396973,-72.2949295043945,NONE:
 
 **Messages with missing field agent information:**
 
-	   GAME\_STATUS|D19D9|fa1ID, lapis, FA1, captured, 8.000000,8.000000,|: 68A6,43.7050819396973,-72.2949295043945,NON\
-	   			     E: B3EB,43.7088928222656,-72.2842864990234,NONE:
+	   GAME\_STATUS|D19D9|fa1ID, lapis, FA1, captured, 8.000000,8.000000,|: 68A6,43.7050819396973,-72.2949295043945,NONE: B3EB,43.7088928222656,-72.2842864990234,NONE:
 
-				     : GAME\_STATUS|D19D9|fa1ID, lapis, FA1, captured, 8.000000,113|: 68A6,43.7050819396973,-72.2949295043945,NONE: B\
-				       3EB,43.7088928222656,-72.2842864990234,NONE:
+	   GAME\_STATUS|D19D9|fa1ID, lapis, FA1, captured, 8.000000,113|: 68A6,43.7050819396973,-72.2949295043945,NONE: B3EB,43.7088928222656,-72.2842864990234,NONE:
 
-				       : GAME\_STATUS|D19D9|fa1ID, lapis,captured, 8.000000,8.000000,|: 68A6,43.7050819396973,-72.2949295043945,NONE: B\
-				       	 3EB,43.7088928222656,-72.2842864990234,NONE:
+     : GAME\_STATUS|D19D9|fa1ID, lapis,captured, 8.000000,8.000000,|: 68A6,43.7050819396973,-72.2949295043945,NONE: B3EB,43.7088928222656,-72.2842864990234,NONE:
 
 
 **Messages with too much field agent information:**
 
-	   GAME_STATUS|D19D9|fa1ID, fa1, lapis, FA1, captured, 8.000000,8.000000,|: 68A6,43.7050819396973,-72.294929504394\
-	   			    5,NONE: B3EB,43.7088928222656,-72.2842864990234,NONE:
+	   GAME_STATUS|D19D9|fa1ID, fa1, lapis, FA1, captured, 8.000000,8.000000,|: 68A6,43.7050819396973,-72.2949295043945,NONE: B3EB,43.7088928222656,-72.2842864990234,NONE:
 
-				    GAME_STATUS|D19D9|fa1ID, fa1, lapis, lapis,  FA1, captured, 8.000000,8.000000,|: 68A6,43.7050819396973,-72.2949\
-				    			     295043945,NONE: B3EB,43.7088928222656,-72.2842864990234,NONE:
+
+	   GAME_STATUS|D19D9|fa1ID, fa1, lapis, lapis,  FA1, captured, 8.000000,8.000000,|: 68A6,43.7050819396973,-72.2949295043945,NONE: B3EB,43.7088928222656,-72.2842864990234,NONE:
 
 
 **Messages with missing code drop information:**
 
-	   GAME_STATUS|D19D9|fa1ID, fa1, lapis, lapis,  FA1, captured, 8.000000,8.000000,|: 68A6,43.7050s819396973,-72.294\
-	   			    9295043945,
+	   GAME_STATUS|D19D9|fa1ID, fa1, lapis, lapis,  FA1, captured, 8.000000,8.000000,|: 68A6,43.7050s819396973,-72.2949295043945,
 
-				    : GAME_STATUS|D19D9|fa1ID, fa1, lapis, lapis,  FA1, captured, 8.000000,8.000000,|:3.7050819396973,-72.294929504\
-				      3945,NONE: B3EB,43.7088928222656,-72.2842864990234,NONE:
+	   GAME_STATUS|D19D9|fa1ID, fa1, lapis, lapis,  FA1, captured, 8.000000,8.000000,|:3.7050819396973,-72.2949295043945,NONE: B3EB,43.7088928222656,-72.2842864990234,NONE:
 
 
 **Messages with too much code drop information:**
 
-	   GAME_STATUS|D19D9|fa1ID, fa1, lapis, lapis,  FA1, captured, 8.000000,8.000000,|:3.7050819396973,-72.29492950439\
-	   			    45,NONE, lapis:
+	   GAME_STATUS|D19D9|fa1ID, fa1, lapis, lapis,  FA1, captured, 8.000000,8.000000,|:3.7050819396973,-72.2949295043945,NONE, lapis:
 
 
 **Other messages with bad syntax:**
 
-	GAME_STATUS|D19D9||fa1ID, fa1, lapis, lapis,  FA1, captured, 8.000000,8.000000,|:3.7050819396973,-72.2949295043\
-				  945,NONE
+	GAME_STATUS|D19D9||fa1ID, fa1, lapis, lapis,  FA1, captured, 8.000000,8.000000,|:3.7050819396973,-72.2949295043945,NONE
 
-				  GAME_STATUS|D19D9|fa1ID.fa1, lapis, lapis,  FA1, captured, 8.000000,8.000000,|:3.7050819396973,-72.294929504394\
-				  			       5,NONE
+	GAME_STATUS|D19D9|fa1ID.fa1, lapis, lapis,  FA1, captured, 8.000000,8.000000,|:3.7050819396973,-72.2949295043945,NONE
 
 
 
@@ -391,10 +393,10 @@ The program correctly does not let the user send a hint, since they have no acti
 
 
      Enter a hint to send to a field agent, or enter 'quit' to quit.
-     	   Send hint to which field agent?
-	   	Your active agents have the following ID's:
-		     You may also enter '*' to send to all agents on your team.
-		     	 Oops! You have no active agents to send hints to!
+     Send hint to which field agent?
+     Your active agents have the following ID's:
+     You may also enter '*' to send to all agents on your team.
+     Oops! You have no active agents to send hints to!
 
 
 ### Error message from the Game Server:
@@ -410,35 +412,37 @@ Upon receipt of this message:
 The interface displays the following:
 
     GAME OVER! Here are the records for this game:
-    	 Number of remaining unneutralized code drops is 7
-	 	Team TEAM1:
-		       Total number of active players: 1
-		       	       Captured 2 players from other teams.
-			       		  3 players on this team were captured.
-					      Neutralized 4 code drops
-					      		  Team TEAM2:
-							         Total number of active players: 5
-								         Captured 6 players from other teams.
-									 	    7 players on this team were captured.
-										        Neutralized 8 code drops
-												    Team TEAM3:
-												    	   Total number of active players: 1
-													   	   Captured 2 players from other teams.
-														   	      3 players on this team were captured.
-															      	  Neutralized 4 code drops
-																  	      Good game, everybody!
+    Number of remaining unneutralized code drops is 7
+    Team TEAM1:
+    Total number of active players: 1
+    Captured 2 players from other teams.
+    3 players on this team were captured.
+    Neutralized 4 code drops
+    Team TEAM2:
+    Total number of active players: 5
+    Captured 6 players from other teams.
+    7 players on this team were captured.
+    Neutralized 8 code drops
+    Team TEAM3:
+    Total number of active players: 1
+    Captured 2 players from other teams.
+    3 players on this team were captured.
+    Neutralized 4 code drops
+    Good game, everybody!
 
 
 **The user enters 'quit' and exits the game.**
+
+
 ### Valgrind:
 *Running the above process with valgrind gives us:*
 
 	 ==18050== LEAK SUMMARY:
-	 	   ==18050==    definitely lost: 0 bytes in 0 blocks
-		   		==18050==    indirectly lost: 0 bytes in 0 blocks
-					     ==18050==      possibly lost: 0 bytes in 0 blocks
-					     		    ==18050==    still reachable: 65,708 bytes in 105 blocks
-							    		 ==18050==         suppressed: 0 bytes in 0 blocks
+	 ==18050==    definitely lost: 0 bytes in 0 blocks
+	 ==18050==    indirectly lost: 0 bytes in 0 blocks
+	 ==18050==      possibly lost: 0 bytes in 0 blocks
+	 ==18050==    still reachable: 65,708 bytes in 105 blocks
+	 ==18050==         suppressed: 0 bytes in 0 blocks
 
 *The "still reachable" memory is all from the ncurses library, not the other Guide Agent code*
 
@@ -448,19 +452,20 @@ The interface displays the following:
 * As the game went on, the program logged activity to a file called "guideagent.log"
 * Since we are logging in the verbose [-v] mode, the log file has time stamps for every message that was received from the Game Server. Here is any example of one message that was logged during that game:
 
-  	Wed Jun  1 14:35:50 2016
-	    	  Received the following message from the game server: GAME_STATUS||fa1ID, lapis, FA1, captured, 8.000000,8.0000\
-		  	       00,113:fa2ID,TEAM1,FA2,active,8.000000,8.000000,113:fa5ID,TEAM2,FA5,active,8.000000,8.000000,45:|: 68A6,43.7050\
-																	819396973,-72.2949295043945,NONE:
-																			 Wed Jun  1 14:35:50 2016
-																			     	    Received an invalid message and ignored it.
+  Wed Jun  1 14:35:50 2016
+  Received the following message from the game server: GAME_STATUS||fa1ID, lapis, FA1, captured, 8.000000,8.0000\
+  00,113:fa2ID,TEAM1,FA2,active,8.000000,8.000000,113:fa5ID,TEAM2,FA5,active,8.000000,8.000000,45:|: 68A6,43.7050\
+  819396973,-72.2949295043945,NONE:
+  Wed Jun  1 14:35:50 2016
+  Received an invalid message and ignored it.
+
 
 The program received the message and wrote down exactly what that message was. Then it realized that the message was invalid, so it wrote that down as well with the same time stamp.
 
 Another example: when the Game Server sent the GS_RESPONSE message:
 
 	Wed Jun  1 14:37:09 2016
-	     Received the following message from the game server: GS_RESPONSE|D19D9|MI_ERROR_INVALID_GAME_ID| bad game ID
-	     	       Wed Jun  1 14:37:09 2016
-		       	     MI_ERROR_INVALID_GAME_ID: Guide agent sent an invalid game ID to the game server.
+	Received the following message from the game server: GS_RESPONSE|D19D9|MI_ERROR_INVALID_GAME_ID| bad game ID
+	Wed Jun  1 14:37:09 2016
+	MI_ERROR_INVALID_GAME_ID: Guide agent sent an invalid game ID to the game server.
 
