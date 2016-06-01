@@ -78,7 +78,7 @@ static void parse_arguments(const int argc, char *argv[]);
 static void check_NULL(void* item);
 static list_t* load_codedrops(char* , int* codedrop_num);
 static location_t* new_location(double latitude, double longitude);
-static void process_message(char* buffer, char* message[]);
+static bool process_message(char* buffer, char* message[]);
 static int validateOP (char* message[]);
 static bool validate_hint(char* hint);
 static void generate_hex(char ID[], int length);
@@ -123,7 +123,7 @@ int main(const int argc, char *argv[])
     	fprintf(stderr,"could not open log file");
     	exit(4);
   	} else {
-  		printf(logp,"Logfile for game of Mission Incomputable");
+  		fprintf(logp,"Logfile for game of Mission Incomputable");
   	}
   	fclose(logp);
 	//validate arguments
@@ -173,7 +173,7 @@ int main(const int argc, char *argv[])
 
   	time_t endwait;
     time_t start = time(NULL);
-    time_t seconds = 300; // end after this many second
+    time_t seconds = 800; // end after this many second
 
     endwait = start + seconds;
 
@@ -215,7 +215,10 @@ int main(const int argc, char *argv[])
 			char* message[strlen(buf)];
 			char* for_hint[strlen(buf)];
 			memcpy(for_hint,buf,strlen(buf)+1);
-			process_message(buf,message);
+			bool continue_processing = process_message(buf,message);
+			if (!continue_processing){
+				continue;
+			}
 			int agent_type = validateOP(message);
 			char* request = message[0];
 			char* gameid = message[1];
@@ -704,12 +707,13 @@ static int validateOP (char* message[])
 /*********process_message()********
 * Fills an array with words from incoming message
 */
-static void process_message(char* buffer, char* message[])
+static bool process_message(char* buffer, char* message[])
 {
 	int toke_count = 0;
 	char* token = strtok(buffer, "|");
 	if (token == NULL) {
 		fprintf(stderr,"not a valid message");
+		return false;
 	}
 
 	//Keep filling the message array until the message is in the array
@@ -720,6 +724,9 @@ static void process_message(char* buffer, char* message[])
     	token = strtok(NULL,"|"); // get next word
     	pos++;
     }
+
+    return true;
+
 
 
 }
@@ -1050,6 +1057,12 @@ static bool validate_fa_message(struct sockaddr_in them, char* gameid,char* pebb
 		return false;
 	}
 
+	//playername doesnt match existing pebbleid playername
+	else if (fa!= NULL && (strcmp(fa->name,playername) != 0)) {
+		free(response);
+		return false;
+	}
+
 	else if(fa != NULL && fa->status != 0){
 		free(response);
 		return false;
@@ -1102,7 +1115,7 @@ static bool validate_ga_message(struct sockaddr_in them,char* gameid,char* guide
 
 	//found guideagents ID does not match the given team's guide's ID
 	team_t* found_team = (team_t*)list_find(teamlist,teamname);
-	if (found_team != NULL){
+	if (found_team != NULL && (found_team->GA != NULL)){
 		if((strcmp(found_team->GA->guideid,guideid)) != 0){
 			free(response);
 			return false;
