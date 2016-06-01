@@ -90,13 +90,12 @@ int printGameOver(char *gameID, FILE *fp, int logSwitch);
 int sendStatusRequest(char *gameID, char *guideID, char *teamName,
 		 char *playerName, int comm_sock, const struct sockaddr *gsp);
 void printPebbleIDs(void *arg, char *key, void *data, void *option);
-void getNumAgents(void *arg, char *key, void *data, void *option);
 bool isNumber(const char *arg);
 void deletefunc(void *data);
 void printTime(FILE *fp);
 void deleteNodes(void *arg, char *key, void *data, void *option);
 void freeBag(bag_t *bag);
-
+void startASCII(void);
 
 // size of buffer when reading from stdin or socket
 static int BUFSIZE = 8000;
@@ -165,7 +164,6 @@ int main(int argc, char *argv[]) {
   
   // prompt user for an ID used to identify the guide agent
   guideID = getGuideID();
-
   
   // If the user entered "^D" before entering an ID, exit the program
   if (strcmp(guideID, "EOF") == 0) {
@@ -185,28 +183,12 @@ int main(int argc, char *argv[]) {
   sendFirstMessage(guideID, teamName, playerName, comm_sock, gs);
 
 
-  /***** ASCII stuff *****/
-  
-  initscr();  // beginning of use of ASCII interface
-  cbreak();   // disable line buffering
+  // ASCII stuff 
+  startASCII();
 
-  // get the size of the user's window
+  // get number of rows and columns in user window
   int row, col;
   getmaxyx(stdscr,row,col);
-
-  /* print some nifty messages just in case they're waiting for the game
-   * server for a long time */
-  char *mesg = "Welcome to the game!";
-  char *mesg2 = "Waiting on input from the game server.";
-  char *mesg3 = "Please press enter to start.";
-  char *instruct1 = "Then enter a hint to send to a field agent";
-  char *instruct2 = "Enter 'quit' to quit at any time.";
-  mvprintw(row/2 - 2, (col-strlen(mesg))/2, "%s", mesg);
-  mvprintw(row/2 - 1, (col-strlen(mesg2))/2, "%s", mesg2);
-  mvprintw(row/2, (col-strlen(mesg3))/2, "%s", mesg3);
-  mvprintw(row/2 + 1, (col-strlen(instruct1))/2, "%s", instruct1);
-  mvprintw(row/2 + 2, (col-strlen(instruct2))/2, "%s", instruct2);
-  refresh();
   
   // open up a file to write the guide agent log to
   FILE *logp;
@@ -429,9 +411,7 @@ static int createSocket(int argc, char *argv[],
 
 
 
-
 /********************* getGuideID ************************/
-
 /* Repeatedly prompts user for 8-character hexadecimal ID until they 
  * enter a valid one. Returns their first valid entry.
  */
@@ -477,7 +457,6 @@ char *getGuideID(void)
 
 
 /******************** sendFirstMessage *********************/
-
 /* Send first message to the game server to announce to the 
  * game server that the guide agent wants to join the game.
  * The message will also request a status update from the server.
@@ -506,7 +485,6 @@ void sendFirstMessage(char *guideID, char *teamName, char *playerName,
   printf("Sent first message to the game server to join the game.\n");
   free(message);
 }
-
 
 
 
@@ -606,7 +584,7 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	  }
 	  
 	  // Field containing info about all the code drops in the game
-	  char *AllCodedrops = strtok(NULL, "|");	  
+	  char *AllCodedrops = strtok(NULL, "|");
 	  if (AllCodedrops == NULL) {
 	    if (logSwitch == 1)
 	      printTime(fp);
@@ -632,8 +610,8 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	    char *agent = strtok(AllAgents, ":");
 	    if (agent == NULL) {
 	      if (logSwitch == 1) {
-		printTime(fp);
-		fprintf(fp, "%s\n", buf);
+	  	printTime(fp);
+	  	fprintf(fp, "%s\n", buf);
 	      }
 	      fprintf(fp, "Received an invalid message and ignored it.\n");
 	      return 1;
@@ -666,12 +644,12 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	      freeBag(FABag);
 	    bag_delete(FABag);
 	    bag_delete(codedropBag);
-	    return 1;	    
+	    return 1;
 	  }
 	  bag_insert(codedropBag, codedrop);
 
 	  // Strtok all of the colon-separated codedrop fields and
-	  // put the string in the codedropBag  
+	  // put the string in the codedropBag
 	  while ((codedrop = strtok(NULL, ":")) != NULL) {
 	    bag_insert(codedropBag, codedrop);
 	  }
@@ -681,7 +659,7 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 
 	  // If the pointer is NULL, that means there was a problem parsing
 	  // somewhere along the line during the getCodedrops function
-	  if (CDBag == NULL) {	    
+	  if (CDBag == NULL) {
 	    if (noAgents == 0)
 	      freeBag(FABag);
 	    bag_delete(FABag);
@@ -802,7 +780,6 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	  refresh();
 	  bag_delete(CDBag);
    	}    
-
 	
 	/***** OPCODE is GAME_OVER *****/
 	
@@ -912,7 +889,6 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 
 
 
-
 /************************** handleStdin ***************************/
 /* Reads input from standard in. If the user entered command + D, it returns
  * "EOF" to tell the program to exit the game. 
@@ -968,7 +944,6 @@ char *handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list,
     refresh();
     return "0";
   }
-
   
   // Print prompts for the user to enter the pebble ID of one of their agents
   mvprintw(pos++, 0, "Send hint to which field agent? ");
@@ -1017,6 +992,7 @@ char *handleStdin(int comm_sock, struct sockaddr_in *gsp, list_t *list,
   
   return idAndHint;
 }
+
 
 
 /*********************** getAgents() **********************/
@@ -1177,6 +1153,7 @@ getAgents(bag_t *agentBag, list_t *list, FILE *fp, int logSwitch)
 }
 
 
+
 /*********************** getCodedrops() **********************/
 /* Takes a bag of strings of colon-separated code drop fields from the
  * GAME_STATUS message from the Game Server. It parses and validate the 
@@ -1278,7 +1255,6 @@ getCodedrops(bag_t *codedropBag, FILE *fp, int logSwitch)
   // Return the new bag of codedrop structs
   return CDBag;
 }
-
 
 
 
@@ -1485,8 +1461,6 @@ int printGameOver(char *gameID, FILE *fp, int logSwitch) {
 
 
 
-
-
 /*********************** sendStatusRequest() **********************/
 /* Takes 4 strings: gameID, guideID, teamName, and playerName, and it takes
  * an int comm_sock and a const struct sockaddr *gsp. With this information,
@@ -1545,24 +1519,6 @@ void printPebbleIDs(void *arg, char *key, void *data, void *option)
 
 
 
-/********************* getNumAgents() **********************/
-/* Used when iterating over a list of FA structs.
- * Given a pointer to an integer as the void *arg argument, the function
- * increments its value for every active agent on the Guide's team
- */
-void getNumAgents(void *arg, char *key, void *data, void *option)
-{
-  int *numAgents = arg;
-  FA_t *current = data;
-  char *teamName = option;
-  
-  // Only increment numAgent's value if the current agent has not been captured
-  // and is on the same team as the Guide Agent
-  if (current->capture == false && strcmp(teamName, current->teamname) == 0) {
-    (*numAgents)++;
-  }
-}
-
 
 /*********************** isNumber() **********************/
 /* Given a string, isNumber() return true if the string consists only of 
@@ -1579,8 +1535,6 @@ bool isNumber(const char *arg)
 
 
 
-
-
 /********************* deletefunc() **********************/
 /* Used to help free memory for items in a list
  * Pass deletefunc in as a parameter to list_new() for any list
@@ -1591,6 +1545,7 @@ void deletefunc(void *data)
   if (data)
     free(data);
 }
+
 
 /********************* printTime() **********************/
 /* Given a file pointer, the function will print the current time onto a line
@@ -1631,3 +1586,31 @@ void freeBag(bag_t *bag)
   while ((bagItem = bag_extract(bag)) != NULL)
     free(bagItem);
 }
+
+
+
+void
+startASCII(void)
+{
+  initscr();  // beginning of use of ASCII interface
+  cbreak();   // disable line buffering
+
+  // get the size of the user's window
+  int row, col;
+  getmaxyx(stdscr,row,col);
+  
+  /* print some nifty messages just in case they're waiting for the game
+   * server for a long time */
+  char *mesg = "Welcome to the game!";
+  char *mesg2 = "Waiting on input from the game server.";
+  char *mesg3 = "Please press enter to start.";
+  char *instruct1 = "Then enter a hint to send to a field agent";
+  char *instruct2 = "Enter 'quit' to quit at any time.";
+  mvprintw(row/2 - 2, (col-strlen(mesg))/2, "%s", mesg);
+  mvprintw(row/2 - 1, (col-strlen(mesg2))/2, "%s", mesg2);
+  mvprintw(row/2, (col-strlen(mesg3))/2, "%s", mesg3);
+  mvprintw(row/2 + 1, (col-strlen(instruct1))/2, "%s", instruct1);
+  mvprintw(row/2 + 2, (col-strlen(instruct2))/2, "%s", instruct2);
+  refresh();
+}
+
