@@ -171,7 +171,7 @@ int main(const int argc, char *argv[])
 
   	time_t endwait;
     time_t start = time(NULL);
-    time_t seconds = 30; // end after this many second
+    time_t seconds = 300; // end after this many second
 
     endwait = start + seconds;
 

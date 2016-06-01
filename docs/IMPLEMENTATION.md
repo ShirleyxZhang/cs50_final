@@ -5,8 +5,7 @@ Shirley Zhang, Deven Orie, Drew Waterman
 ***** Game Server *****
 
 1) Program parses command line arguments using parse_arguments function.
-   Checks for wrong number of arguments, unreadable codedrop filepath and
-   invalid port number.
+   Checks for wrong number of arguments, unreadable codedrop filepath. Checks for raw log switch
 
 2) Uses load_codedrops function to read from the codedrop file and create a
    codedrop struct for each. In each code drop there is also a pointer to
@@ -64,7 +63,8 @@ Shirley Zhang, Deven Orie, Drew Waterman
 
 8) If message is from GA, validate the gameId, guideId, teamName, and
    playerName, and then check what the opcode, process appropriately using
-   switches.
+   switches.  
+   
  - GA_ STATUS: If GA doesn’t exist, create a new GA and add to existing team
    or create new team. If GA does exist, check the team name sent in matches
    the team name of the GA already stored in the guidelist. If GA requested
@@ -74,14 +74,14 @@ Shirley Zhang, Deven Orie, Drew Waterman
  - GA_HINT: Lookup the pebbleid in playerlist and send the message to that FA
    using sendto and the stored address of the FA in the FA struct.
 
-9) Send out updates every 45 seconds. Send update to each FA by going to team
+9) Send out updates when requested. Send update to each FA by going to team
    list and looping through the FA list in each team struct and update info.
    Send this updated info, along with codedrop info to each FA in that team.
    Repeat for all teams. After, send information about the whole game to each
    GA by going through guidelist.
 
 10) End game and clean up memory appropriately and close socket when all
-    codedrops have been neutralized, send the ending message to all the players
+    codedrops have been neutralized or the timer has run out, send the ending message to all the players
     by looping through playerlist and GA list.
 
 
@@ -91,35 +91,35 @@ Shirley Zhang, Deven Orie, Drew Waterman
 
 2) Checks that the data structure implementations are not null/exist
    Exit Status: exit(1)
-	
+  
 3) Setup the SDK & Set WatchFace to False
 
 4) Set up Text Layers, Windows, & Screen Layers {Order of the stack currently
    working on}
 
-	Screen 1: Choose player name from the (player list)
-			Key: Pebble ID
-			Data: FA Struct
-			
+  Screen 1: Choose player name from the (player list)
+      Key: Pebble ID
+      Data: FA Struct
+      
 5) Set up a secondary window 
 
-	Screen 2: Display the amount of teams in the game/names & Players on
-	my team
-			 	(Team List)
-				Key: Team Name
-				DATA: Team Struct
+  Screen 2: Display the amount of teams in the game/names & Players on
+  my team
+        (Team List)
+        Key: Team Name
+        DATA: Team Struct
 6) Set up a third window/screen layer
 
-	Screen 3: Two Options
-				Print out how many codes have been neutralized/total amount.
-			Option 1: Neutralize Code	
-			Option 2: Capture Player
-								
+  Screen 3: Two Options
+        Print out how many codes have been neutralized/total amount.
+      Option 1: Neutralize Code 
+      Option 2: Capture Player
+                
 Option 1: After the code is typed into a text box, we search to see if it can
 be found in the (List of Code Drops)
-			
-			Key: Hex Code
-			DATA: Code Drop Struct & Pointer to Location Struct
+      
+      Key: Hex Code
+      DATA: Code Drop Struct & Pointer to Location Struct
 
 -The State of this code drop struct would have to be
 changed once found
@@ -139,9 +139,9 @@ If in the proximity of another player; Press Capture
 
 Once captured Player is made Inactive(PlayerList)
 
-			Key: Pebble ID
-			DATA: FA Struct
-		
+      Key: Pebble ID
+      DATA: FA Struct
+    
 -Checks on the proximity
 
 -Checks on if the ID number entered is accurate
@@ -156,14 +156,14 @@ Once captured Player is made Inactive(PlayerList)
 
 8) Buttons & Layered Fields
 
-	May want to incorporate: 
-		-basic_update_proc
-		-config_provider
-		-haptic feedback: backlit display & vibrations 
+  May want to incorporate: 
+    -basic_update_proc
+    -config_provider
+    -haptic feedback: backlit display & vibrations 
 9) Check the connection between the Game Server and Game Agent 
 
-	*Process/Display the Data Grams 
-	*Incorporate this data into the application
+  *Process/Display the Data Grams 
+  *Incorporate this data into the application
 
 10) Full check on exit status and shared data 
 
@@ -192,23 +192,23 @@ Once captured Player is made Inactive(PlayerList)
 6) Wait in an infinite while loop for datagrams from the game server and for
    input from the guide agent simultaneously.
    
-   	 a. if a datagram comes in from the game server:
-	 
-      	       i. Parse the message
-	       
-      	       ii. If it’s the first message received, launch the graphical
-	       interface overlaid on a campus map
-	       
-      	       iii. Update the appropriate interface from the information from
-	       the status updates from the game server and write to the log
+     a. if a datagram comes in from the game server:
+   
+               i. Parse the message
+         
+               ii. If it’s the first message received, launch the graphical
+         interface overlaid on a campus map
+         
+               iii. Update the appropriate interface from the information from
+         the status updates from the game server and write to the log
 
-	       iv. If the game is over, notify field agents that game is over,
-	       print appropriate end-of-game statistics, write to the log that
-	       the game has ended, and exit
-	       
-	 b. If a datagram comes in from the guide agent/stdin, send an
-	    appropriate message to the game server so that hints can be then
-	    sent to the field agent
+         iv. If the game is over, notify field agents that game is over,
+         print appropriate end-of-game statistics, write to the log that
+         the game has ended, and exit
+         
+   b. If a datagram comes in from the guide agent/stdin, send an
+      appropriate message to the game server so that hints can be then
+      sent to the field agent
 
 7) Clean up any malloced memory that has not yet been freed and close the
    socket. 

@@ -10,7 +10,7 @@ CFLAGS = -Wall -pedantic -std=c11 -ggdb -lm
 CC = gcc
 MAKE = make
 
-# build the crawler
+# build the game_server
 $(PROG): $(OBJS) $(LLIBS)
 	$(CC) $(CFLAGS) $^ $(LIBS) -o $@
 
