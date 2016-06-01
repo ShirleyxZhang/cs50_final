@@ -5,17 +5,30 @@
 #include <stdbool.h>  
 #include <string.h>
 #include <pebble_strtok.h>
-
+//Server
 //Team Lapis-CS50-Field Agent
 //make install-emulator -logs
 //pebble install --phone 10.31.240.237 --logs
 //make start-proxy
+//./game_server codedrops 23383
+
+
+#define TEXT_ANIMATION_WINDOW_DURATION 2000   // Duration of each half of the animation
+#define TEXT_ANIMATION_WINDOW_DISTANCE 35    // Pixels the animating text move by
+#define TEXT_ANIMATION_WINDOW_INTERVAL 4000 // Interval between timers
+
+
+static Window *s_window;
+static TextLayer *ss_text_layer;
+static AppTimer *s_timer;
+static char s_text[1][300];
+static uint8_t s_current_text;
+static void animate();
+
 
 //Windows for each screen of the app
 static Window *window, *choose_team_window, *window2, *neutralize_window, *capture_window;
 static Window *getting_captured;
-static Window *hints_window;
-;;;;;;;l;l;l;
 
 //Allows for menu built on top of scroll view
 static MenuLayer *player_menu, *option_menu;
@@ -27,10 +40,9 @@ static TextLayer *capture_header, *capture_input;
 static TextLayer *neutralize_code_text, *player_input;
 static TextLayer *team_header, *team_input;
 static TextLayer *capture_code_text;
-static TextLayer *capture_text, *capture_number;
+static TextLayer *capture_text;
 static TextLayer *s_text_layer;
 
-static ScrollLayer *s_scroll_layer;
 
 static char player_name[20]="0";
 static char guide_player_name[20]="0";
@@ -81,6 +93,7 @@ static char *game_status_game_over_key_check="GAME_OVER";
 static char *game_status_gs_response_key_check="GS_RESPONSE";
 static char *game_status_ga_hint_key_check="GA_HINT";
 
+
 const char delim[2] = "|";
 
 const uint32_t inbox_size = 64;
@@ -99,15 +112,98 @@ static bool match_two=false;
 //static bool player_registered=false;
 static bool team_registered=false;
 
-
 // Largest expected inbox and outbox message sizes
 //*********************OP Codes****************************************//
 //FA_LOCATION|gameId|pebbleId|teamName|playerName|lat|long|statusReq
-
 //FA_NEUTRALIZE|gameId|pebbleId|teamName|playerName|lat|long|codeId
-
 //FA_CAPTURE|gameId|pebbleId|teamName|playerName|captureId
 
+static void out_stopped_handler(Animation *animation, bool finished, void *context) {
+  s_current_text += (s_current_text == 0) ? 1 : -1;
+  text_layer_set_text(s_text_layer, s_text[s_current_text]);
+
+  Layer *text_layer = text_layer_get_layer(s_text_layer);
+  GRect frame = layer_get_frame(text_layer);
+  GRect start = GRect(frame.origin.x + (2 * TEXT_ANIMATION_WINDOW_DISTANCE), frame.origin.y, frame.size.w, frame.size.h);
+  GRect finish = GRect(frame.origin.x + TEXT_ANIMATION_WINDOW_DISTANCE, frame.origin.y, frame.size.w, frame.size.h);
+
+  PropertyAnimation *in_prop_anim = property_animation_create_layer_frame(text_layer, &start, &finish);
+  Animation *in_anim = property_animation_get_animation(in_prop_anim);
+  animation_set_curve(in_anim, AnimationCurveEaseInOut);
+  animation_set_duration(in_anim, TEXT_ANIMATION_WINDOW_DURATION);
+  animation_schedule(in_anim);
+}
+
+static void shake_animation() {
+  Layer *text_layer = text_layer_get_layer(s_text_layer);
+  GRect start = layer_get_frame(text_layer);
+  GRect finish = GRect(start.origin.x - TEXT_ANIMATION_WINDOW_DISTANCE, start.origin.y, start.size.w, start.size.h);
+
+  PropertyAnimation *out_prop_anim = property_animation_create_layer_frame(text_layer, &start, &finish);
+  Animation *out_anim = property_animation_get_animation(out_prop_anim);
+  animation_set_curve(out_anim, AnimationCurveEaseInOut);
+  animation_set_duration(out_anim, TEXT_ANIMATION_WINDOW_DURATION);
+  animation_set_handlers(out_anim, (AnimationHandlers) {
+    .stopped = out_stopped_handler
+  }, NULL);
+  animation_schedule(out_anim);
+}
+
+static void animate_callback(void *context) {
+  animate();
+}
+
+static void animate() {
+  shake_animation();
+  s_timer = app_timer_register(4000, animate_callback, NULL);
+}
+
+
+static void window_loader(Window *window) {
+  Layer *window_layer = window_get_root_layer(window);
+  GRect bounds = layer_get_bounds(window_layer);
+
+  const GEdgeInsets text_insets = {.top = (bounds.size.h / 2) - 24};
+  s_text_layer = text_layer_create(grect_inset(bounds, text_insets));
+  text_layer_set_text(s_text_layer, "Example text.");
+  text_layer_set_text_color(s_text_layer, GColorWhite);
+  text_layer_set_background_color(s_text_layer, GColorClear);
+  text_layer_set_font(s_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  text_layer_set_text_alignment(s_text_layer, GTextAlignmentCenter);
+  layer_add_child(window_layer, text_layer_get_layer(s_text_layer));
+}
+
+static void window_unloader(Window *window) {
+  text_layer_destroy(s_text_layer);
+  window_destroy(s_window);
+  s_window = NULL;
+}
+
+static void window_disappear(Window *window) {
+  if(s_timer) {
+    app_timer_cancel(s_timer);
+    s_timer = NULL;
+  }
+}
+
+void text_animation_window_push() {
+  snprintf(s_text[0], sizeof(s_text[0]), game_status_key_check);
+  //snprintf(s_text[1], sizeof(s_text[1]), "Dude!");
+  s_current_text = 0;
+
+  if(!s_window) {
+    s_window = window_create();
+    window_set_background_color(s_window, PBL_IF_COLOR_ELSE(GColorBlueMoon, GColorBlack));
+    window_set_window_handlers(s_window, (WindowHandlers) {
+      .load = window_loader,
+      .unload = window_unloader,
+      .disappear = window_disappear
+    });
+  }
+  window_stack_push(s_window, true);
+
+  animate();
+}
 //*********************Send Message****************************************//
 static void sendMessage(int key, char* value) {
 
@@ -153,7 +249,7 @@ static void inbox_dropped_callback(AppMessageResult reason, void *context) {
 //Handles the messages Received
 static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   // Is the location name inside this message?
-  //LOG("MESSAGE RECEIVED");
+  LOG("MESSAGE RECEIVED");
 
     //PEBBLE ID
     Tuple *ready_tuple = dict_find(iter, AppKeyJSReady);
@@ -169,7 +265,7 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
     Tuple *received_message = dict_find(iter, AppKeyRecvMsg);
     if (received_message){
       char *hold_message = received_message->value->cstring;
-      //char *hold_message = "GS_CAPTURE_ID|gameId|captureId"
+
       //Parsing of the message sent by the game server
       LOG(hold_message);
       char token[500];
@@ -177,11 +273,8 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
       //If the token/key before the first pipe is valid
       if(token!=NULL){
 
-            LOG("IN IFIF");
           //GAME_STATUS|gameId|guideId|numRemainingCodeDrops|numFriendlyOperatives|numFoeOperatives
           if(strcmp(token,game_status_key_check)==0){
-            LOG("IN IF");
-
             strcpy(game_id, pebble_strtok(NULL, delim));
             strcpy(guide_id,pebble_strtok(NULL, delim));
             strcpy(code_drops_left,pebble_strtok(NULL, delim));
@@ -191,8 +284,6 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
 
           //GS_CAPTURE_ID|gameId|captureId
           if(strcmp(token,game_status_capture_key_check)==0){
-            LOG("IN I");
-
             strcpy(game_id, pebble_strtok(NULL, delim));
             strcpy(capture_id, pebble_strtok(NULL, delim));
             //window_stack_push(getting_captured, true);
@@ -200,7 +291,6 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
 
           //GAME_OVER|gameId|numRemainingCodeDrops|t1:t2:...:tK
           if(strcmp(token,game_status_game_over_key_check)==0){
-
             pebble_strtok(NULL, delim);
             strcpy(code_drops_left, pebble_strtok(NULL, delim));
             strcpy(game_over_message, pebble_strtok(NULL, delim));
@@ -208,7 +298,7 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
 
           //GS_RESPONSE|gameId|respCode|message
           if(strcmp(token,game_status_gs_response_key_check)==0){
-            pebble_strtok(NULL, delim);
+            strcpy(game_id,pebble_strtok(NULL, delim));
             pebble_strtok(NULL, delim);
             strcpy(resp_Code_message, pebble_strtok(NULL, delim));
             LOG(resp_Code_message);
@@ -223,11 +313,9 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
             strcpy(hint_message, pebble_strtok(NULL, delim));
             LOG(hint_message);
 
-      }else{
-        //If the message is not 
-        LOG("Message Not Formatted Correctly");
-      }
-    }
+          }
+        }
+     }
 
     //Location Tuple
    Tuple *location_tuple = dict_find(iter, AppKeyLocation);
@@ -238,7 +326,7 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
 
      strcpy(location,location_name);
      //LOG("HERE IS THE LOCATION %s", s_buffer);
-  }
+    }
 }
 
 //****************************Tick_Handler*****************************//
@@ -284,8 +372,6 @@ void select_click_callback (MenuLayer *player_menu, MenuIndex *cell_index, void 
     if (player_letter_incrementer>0&&which==0){
 
           strcpy(player_name,playerName);
-          //player_registered=true;
-          //window_stack_pop(true);
           psleep(100);
           window_stack_push(choose_team_window,true);
     }
@@ -337,7 +423,7 @@ void select_click_callback_two (MenuLayer *option_menu, MenuIndex *cell_index, v
   }
 
   if (option==2){
-    window_stack_push(hints_window,true);
+    text_animation_window_push();
   }
 
   if (option==3){
@@ -440,7 +526,7 @@ void select_click_callback_three (MenuLayer *neutralize_keyboard, MenuIndex *cel
       snprintf(neutralize_message, 8191, "FA_NEUTRALIZE|%s|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, location, code_neutral);
       LOG(neutralize_message);
       sendMessage(AppKeySendMsg,neutralize_message);
-      psleep(1000);
+      psleep(2000);
 
       //Resets all of the booleans, integers, and buffers
       match=false;    
@@ -448,7 +534,6 @@ void select_click_callback_three (MenuLayer *neutralize_keyboard, MenuIndex *cel
       incrementer=0;
       text_layer_set_text(navigation_input, neutralization_code);
     }//main if
-
 }
 
 //{Key Board}}-Capture KeyBoard
@@ -486,7 +571,6 @@ void select_click_callback_four (MenuLayer *capture_keyboard, MenuIndex *cell_in
     incrementer_two=0;
     text_layer_set_text(capture_input, capture_code);
   }//main if
-
 }
 //Typing in a team name;
 void select_click_callback_five (MenuLayer *team_name_keyboard, MenuIndex *cell_index, void *callback_context) {
@@ -509,12 +593,10 @@ void select_click_callback_five (MenuLayer *team_name_keyboard, MenuIndex *cell_
   }
     //Once we have 4 characters
     if (team_letter_incrementer>0&&which==0){
-          //window_stack_pop(window_get_root_layer(window2));
           strcpy(team_name,teamName);
           team_registered=true;
           psleep(100);
           window_stack_push(window2,true);
-          //window_stack_pop(window_get_root_layer(window2));
     }
 }
 
@@ -565,8 +647,6 @@ void window_load (Window *window){
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(neutralize_code_text));
   layer_add_child(window_get_root_layer(window), menu_layer_get_layer(player_menu));
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(player_input));
-
-
 
 }
 
@@ -768,56 +848,6 @@ void window_unload_neutralize_code (Window *window){
 }
 
 //**********************************************************************//
-void window_load_hints(Window *window){
-  Layer *window_layer = window_get_root_layer(window);
-  GRect bounds = layer_get_bounds(window_layer);
-
-  GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-
-
-
-  // Find the bounds of the scrolling text
-  GRect shrinking_rect = GRect(0, 0, bounds.size.w, 2000);
-  char *text = "Example text that is really really really really really \
-                                really really really really really really long\
-                                  really really really really really really long";
-
-  GSize text_size = graphics_text_layout_get_content_size(text, font, 
-                  shrinking_rect, GTextOverflowModeWordWrap, GTextAlignmentLeft);
-  GRect text_bounds = bounds;
-  text_bounds.size.h = text_size.h;
-
-  // Create the TextLayer
-  s_text_layer = text_layer_create(text_bounds);
-  text_layer_set_overflow_mode(s_text_layer, GTextOverflowModeWordWrap);
-  text_layer_set_font(s_text_layer, font);
-  text_layer_set_text(s_text_layer, text);
-
-
-  // Create the ScrollLayer
-  s_scroll_layer = scroll_layer_create(bounds);
-
-  // Set the scrolling content size
-  scroll_layer_set_content_size(s_scroll_layer, text_size);
-
-  // Let the ScrollLayer receive click events
-  scroll_layer_set_click_config_onto_window(s_scroll_layer, hints_window);
-
-  // Add the TextLayer as a child of the ScrollLayer
-  scroll_layer_add_child(s_scroll_layer, text_layer_get_layer(s_text_layer));
-
-  // Add the ScrollLayer as a child of the Window
-  layer_add_child(window_get_root_layer(hints_window), scroll_layer_get_layer(s_scroll_layer));
-
-}
-
-void window_unload_hints(Window *window){
-  scroll_layer_destroy(s_scroll_layer);
-  text_layer_destroy(s_text_layer);
-
-}
-
-
 //Initialize Method
 void init() {
 
@@ -843,7 +873,6 @@ void init() {
   neutralize_window= window_create();
   capture_window =window_create();
   getting_captured=window_create();
-  hints_window=window_create();
 
 
   // Setup the window handlers
@@ -877,13 +906,8 @@ void init() {
     .unload = window_unload_capture_player
   };
 
-  WindowHandlers handlers_seven = {
-    .load = window_load_hints,
-    .unload = window_unload_hints
-  };
 
   //Window Handlers for all of the windows 
-  window_set_window_handlers (hints_window, (WindowHandlers) handlers_seven);
   window_set_window_handlers (capture_window, (WindowHandlers) handlers_six);
   window_set_window_handlers (neutralize_window, (WindowHandlers) handlers_five);
   window_set_window_handlers (window2, (WindowHandlers) handlers_four);
@@ -903,8 +927,6 @@ void deinit() {
   window_destroy(capture_window);
   window_destroy(choose_team_window);
   window_destroy(getting_captured);
-  window_destroy(hints_window);
-
 }
 
 //Main Method Runs the application 
