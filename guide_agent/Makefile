@@ -2,31 +2,23 @@
 #
 # Team Lapis (Drew Waterman, Deven Orie, Shirley Zhang), May 2016  
 
-CC = gcc
-CFLAGS = -Wall -pedantic -std=c11 -ggdb
+L = ../lib
+C = ../common
 PROG = guide
-OBJS = guide.o ../common/file.o ../lib/list/list.o ../lib/bag/bag.o
+OBJS = guide.o
+LLIBS = $(L)/cs50ds.a $(C)/common.a
+CFLAGS = -Wall -pedantic -std=c11 -ggdb -lncurses
+CC = gcc
 MAKE = make
 
+# build the guide_agent
+$(PROG): $(OBJS) $(LLIBS)
+	$(CC) $(CFLAGS) $^ $(LIBS) -o $@
 
-
-guide: $(OBJS)
-	$(CC) $(CFLAGS) -o guide $(OBJS) -lncurses
-
-
-guide.o: ../common/file.h ../lib/bag/bag.h ../lib/list/list.h
-
-../common/file.o: ../common/file.h ../common/file.c
-	cd ../common/; $(MAKE)
-
-../lib/list/list.o: ../lib/list/list.h ../lib/list/list.c
-	cd ../lib/list/; $(MAKE) # ../list/list.o
-
-../lib/bag/bag.o: ../lib/bag/bag.h ../lib/bag/bag.c
-	cd ../lib/bag/; $(MAKE) # ../bag/bag.o
-
-
+# source dependencies; add others as needed
+guide.o: $(C)/file.h $(C)/word.h $(L)/bag/bag.h $(L)/hashtable/hashtable.h $(L)/counters/counters.h
 
 clean:
 	rm -f *~
 	rm -f *.o
+	rm -f $(PROG)
