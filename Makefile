@@ -2,7 +2,7 @@
 
 MAKE = make
 
-These targets do not produce real "targets"
+# These targets do not produce real "targets"
 .PHONY: all clean start-proxy stop-proxy
 
 ############## default: make all libs and programs ##########
