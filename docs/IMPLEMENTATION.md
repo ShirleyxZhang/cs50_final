@@ -87,45 +87,47 @@ Shirley Zhang, Deven Orie, Drew Waterman
 
 ***** Field Agent *****
 
-1) Check the validity/active state of the game server & game agent
+1) The validity/active state of the field agent is checked 
 
-2) Checks that the data structure implementations are not null/exist
-   Exit Status: exit(1)
+2) Checks the connunication between the Game Server and Field Agent 
+as updates are continuously sent every 15 seconds. 
   
-3) Setup the SDK & Set WatchFace to False
+3) Setup the SDK & Set WatchFaces
 
 4) Set up Text Layers, Windows, & Screen Layers {Order of the stack currently
    working on}
 
-  Screen 1: Choose player name from the (player list)
+--These data structures are not incorperated by the field agent, but rather 
+how the data is stored and checked. 
+
+  Screen 1: Allows the user to input a player name of their choosing 
       Key: Pebble ID
       Data: FA Struct
       
 5) Set up a secondary window 
 
-  Screen 2: Display the amount of teams in the game/names & Players on
-  my team
+  Screen 2: Allows the user to input a team name of their choosing 
         (Team List)
         Key: Team Name
         DATA: Team Struct
-6) Set up a third window/screen layer
 
-  Screen 3: Two Options
-        Print out how many codes have been neutralized/total amount.
-      Option 1: Neutralize Code 
-      Option 2: Capture Player
+6) The third window gives the user the option to neutralize, capture, request update or look at hints.
+
+  NEUTRALIZE- Here the user is a able to enter a 4 digit hex code and check to see if the code trying to be neutralized is in the correct proximity and is being sent through OP codes
+
+  CAPTURE- Here the user is able to enter a players id code if they are able to effectively send the right op code to the server, and once handled, this would allow a field agent to capture another person.
+
+  REQUEST UPDATE- Updates common variables and allows users to get updates on a shorter time stamp reather than every 15 seconds.
+
+  HINTS -  Just an animate window with the most up to date data from the server
+
                 
-Option 1: After the code is typed into a text box, we search to see if it can
-be found in the (List of Code Drops)
-      
-      Key: Hex Code
-      DATA: Code Drop Struct & Pointer to Location Struct
+7) Option 1: After the code is typed into a text box, the op code is sent to the game server and if validated, the message sent back will be parsed and will let me know the success value of my actions. 
 
--The State of this code drop struct would have to be
-changed once found
+
 
 -If not found return error message else return success
-message
+message, this occurs in my message handlers
 
 -If already in inactive state return message 
 
@@ -135,12 +137,11 @@ If in the proximity of another player; Press Capture
 -Possibly Based on the location Data and the data from the (Team List), this
  would only work if this check is met
 
--Sends a signal to the Game Server to relay the ID of the player being captured
+-Sends a signal to the Game Server to relay the ID of the player being captured; THis is no longer overwatched by a 60 second timer, but on the pebble a new window pops up indicating this informationa and new game state.
 
-Once captured Player is made Inactive(PlayerList)
+-Once captured Player is made Inactive(PlayerList)
 
-      Key: Pebble ID
-      DATA: FA Struct
+
     
 -Checks on the proximity
 

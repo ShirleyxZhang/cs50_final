@@ -63,7 +63,7 @@ Input:
 
 Output:
 
-* hints from GA to FA
+* hints from GA to FA (Not direclty communicating with each other)
 * game number response to each new player
 * game status updates to GA including:
   * game statistics: elapsed time, number of active agents, number of active teams, number of code drops yet to neutralize.
@@ -80,11 +80,16 @@ Output:
 ###Functional Decomposition into Modules
 ####Field Agent
 We anticipate the following modules or functions:
-1. main, which waits for the user to interact with the pebble
-2. UpdateInfo, send location updates to GS
+1. main/init, necessary for setting up windows and initial declarations
+2. deinit, destroys layers no longer in use
 3. RequestInfo, send request to GS for updates
 4. CaptureAgent, sends hexcode to capture
 5. NeutralizeCode, sends hexcode to neutralize codedrop
+6. window_load, loads the windows
+7. window_unload, unloads the windows
+8. window_handlers, to espect all aspects of a window
+9. dictionaries, allows for cross connunicationbetween server and phone
+
 
 ####Guide Agent
 We anticipate the following modules or functions:
@@ -105,9 +110,12 @@ We anticipate the following modules or functions:
 15. freeBag - extracts all remaining items in a bag and frees their data
 16. startASCII - calls initscr() and prints a suitable startup message to the ASCII interface
 
-###
-
-
+###Game Adgent
+1. Parsing and Sending ARguments
+2. Sending Aerts based on hex code
+3. Interpret server data and accutately send codes
+4. Use window layers to effextively present information
+5. Send updates to the Game Server
 
 
 ####Game Server
@@ -175,7 +183,7 @@ Guide Agent:
 * Guide Agent receives a GAME_STATUS message from the Game Server. It parses this message, checking to make sure that it is valid every step of the way. For every valid Field Agent field that the Guide Agent parses, it creates an FA struct and adds it to a bag of FA's. It does the same for code drops with codedrop structs and a codedrop bag.
   * If the message from the Game Server was valid, the Guide Agent prints an appropriate message to an ASCII interface, letting the user know key information about the ongoing game.
   * If the message is not valid, the program stops parsing and ignores the rest of the message.
-  * Guide Agent only prints information from each message after ensuring that the entire message is valid.
+  * Guide Agent only prints information from each message after ensuring that the entire message is valid.cd 
 * The user enters a hint to send to a Field Agent
   * The program ensures that the hint is valid (is not too long, is not a blank line)
   * The user prints out a list of the pebble ID's of active Field Agents on the Guide's team (or prints a message to the Guide Agent telling them they cannot send a hint if they do not have any active agents on their team)
