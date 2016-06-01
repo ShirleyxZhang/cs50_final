@@ -26,8 +26,7 @@ This directory contains the game_server.c file which will compile in to the game
 There is also a gstest.c which is the chatserver code seen in class. This program can be useful in making fake players to simulate the game. For more details of this program refer to the README in game _server directory.
 
 ### Guide_agent directory
-
-
+This directory contains the guide.c file, which is the Guide Agent component ofthe Mission Incomputable game. The user interacts with the game through an ASCII interface, allowing the user to send hints to Field Agents through the Game Server and receive status updates about the game through messages from the Game Server. For more details, refer to the README in the guide_agent directory. 
 
 ### field_agent directory
 This directory contains the pebble.c file, a json file, and multiple java script files. All of these work together in allowing the pebble application to 
