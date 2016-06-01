@@ -27,4 +27,15 @@ There is also a gstest.c which is the chatserver code seen in class. This progra
 
 ### Guide_agent directory
 
+
+
 ### field_agent directory
+This directory contains the pebble.c file, a json file, and multiple java script files. All of these work together in allowing the pebble application to 
+connect with the right proxy and ports on a server and access data from using the keys stated in the mission.h file to send certain information to a certain destination. This program can be useful in allowing a user to have an interactive experience while player with others and sharing information with users.
+
+
+
+
+
+
+
