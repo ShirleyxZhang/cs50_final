@@ -88,9 +88,27 @@ We anticipate the following modules or functions:
 
 ####Guide Agent
 We anticipate the following modules or functions:
-1. main, which waits for datagrams from GS
-2. writeLog, records messages to guideagent.log
-3. RequestInfo, send request to GS for updates
+1. createSocket - parses the GShost and GSport arguments and sets up a socket
+2. getGuideID - prompts the user to enter an 8-digit ID and assigns them this ID for the rest of the game
+3. sendFirstMessage - sends the first message from the Guide Agent to the Game Server, announcing the Guide Agent's presence and requesting a status update
+4. handleSocket - parsed incoming messages from the Game Server and handles them appropriately
+5. handleStdin - handles user input while the game is running, and calls appropriate functions to either send hints or exit the game, depending on user input
+6. getAgents - further parses and validates the agent subfields in the GAME_STATUS messages from the Game Server, returning a bag of FA structs containing the parsed information
+7. getCodedrops - like getAgents, but parses the code drop field of the GAME_STATUS message. Returns a bag of codedrop structs containing the parsed information
+8. printGameOver - prints the ending statistics from the GAME_OVER message from the Game Server onto the interface
+9. sendStatusRequest - sends a message to the Game Server requesting a status update
+10. printPebbleIDs - prints the pebble ID's of all of the active Field Agent's on the Guide Agent's team to the interface
+11. isNumber - returns true if the given string consists only of digits, and false otherwise.
+12. deletefunc - helper function for deleteing data structures
+13. printTime - prints the current time to a log file
+14. deleteNodes - when iterating over a list, sets the keys of all nodes currently in a list to "NONE"
+15. freeBag - extracts all remaining items in a bag and frees their data
+16. startASCII - calls initscr() and prints a suitable startup message to the ASCII interface
+
+###
+
+
+
 
 ####Game Server
 We anticipate the following modules or functions:  
@@ -130,26 +148,51 @@ We anticipate the following modules or functions:
 ###Dataflow through modules
 ![Alt text](/Users/imac/Desktop/diagram.jpg)
 
+Game Server:
 * Game Server- Server is in working order and is connected to without any failure.
-* Game server reads codedrop files and creates a struct for each codedrop. Puts them in a list with keyword as codedrop hex code and data as the struct. Have a count of the total codedrops
-* GA joins the game. A GA struct is created and a team struct is created.
-* FAs join the game: FA structs are created. corresponding team structs are updated with a list of pointers to FAs.
+* Game Server reads codedrop files and creates a struct for each codedrop. Puts them in a list with keyword as codedrop hex code and data as the struct. Have a count of the total codedrops
+* GA joins the game by sending a message to the Game Server. Game Server creates a GA struct and a team struct. 
+* FAs join the game: Game Server creates FA structs. Corresponding team structs are updated with a list of pointers to FAs.
 * FA neutralizes a code
   * Received the hexcode. Check the status of the codedrop.
   * Check distance of hexcode to player sending in hexcode
     * If all codedrops are neutralized, end the game
 * FA captures another player
-  * Check validity of the code, the time since code has been sent and whether the player is not already captured   
+  * Check validity of the code, the time since code has been sent and whether the player is not already captured.
   * Go to the captured FA's team struct. Make a check to see if all players of one team have been captured. If so, change the team to inactive.
 * Updates to GA: GS loops through the existing teams, and for every FA struct in every team, obtain appropriate info, including all player info, and codedrop status, and add the information to a string. send that string tp the guide agent
 * Updates to FA: make string of appropriate info by looking at general game state information and information and information specific to that player and palyer's team, send to FA.
-* Sending hints: GA send hint to GS. GS recoginizes its a valide hint. Checks the hint is going to a teammember of the GA and forwards the entire message.
+* Sending hints: GA send hint to GS. GS recoginizes it's a valid hint. Checks the hint is going to a teammember of the GA and forwards the entire message.
 * updating location of FA: update appropriate member of the fa struct
 
+
+
+Guide Agent:
+* Game Server is running and connected to the port
+* The user runs the Guide Agent with valid command-line arguments, and the program prompts the user for a guide ID.
+* The Guide Agent launches into an ASCII interface
+* Guide Agent sends a message requesting an update from the Game Server in order to join the game. Sends a similar message requesting a status update for every fifteen seconds of inactivity.
+* Guide Agent receives a GAME_STATUS message from the Game Server. It parses this message, checking to make sure that it is valid every step of the way. For every valid Field Agent field that the Guide Agent parses, it creates an FA struct and adds it to a bag of FA's. It does the same for code drops with codedrop structs and a codedrop bag.
+  * If the message from the Game Server was valid, the Guide Agent prints an appropriate message to an ASCII interface, letting the user know key information about the ongoing game.
+  * If the message is not valid, the program stops parsing and ignores the rest of the message.
+  * Guide Agent only prints information from each message after ensuring that the entire message is valid.
+* The user enters a hint to send to a Field Agent
+  * The program ensures that the hint is valid (is not too long, is not a blank line)
+  * The user prints out a list of the pebble ID's of active Field Agents on the Guide's team (or prints a message to the Guide Agent telling them they cannot send a hint if they do not have any active agents on their team)
+  * The user enters in the pebbleID of the Field Agent they want to send the hint to
+  * The program sends a GA_HINT message to the Game Server
+* Guide Agent receives a GAME_OVER message from the Game Server
+  * Parses the message, and if it's valid, prints the end-game statistics to the interface.
+* The user enters 'quit' to exit the game
+* Throughout the game, the Guide Agent prints information about every message it receives to a log file
+
+
+
 ###Major data structures
-* list of codedrops
-* list of teams
-* lists of FAs
+Game Server:
+* list of codedrops 
+* list of teams 
+* lists of FAs 
 * codedrop files, FA, GA, Team, location will each be a struct.
 * location struct: longitude, latitude
 * code drop struct: status, hex code, location, neutralized team
@@ -157,6 +200,22 @@ We anticipate the following modules or functions:
 * GA struct: teamname, address, last time of contact, guideid, playername
 * team struct: teamname, field agents, guide agent, status, active players, total number of players ever present, number of neutralized codes, number of players captured, number of captured players
 
+
+Guide Agent:
+* codedrop struct (4 strings: hexcode, latitude, longitude, teamname)
+* FA struct (6 strings: teamname, pebbleid, name, latitude, longitude, and contact, and 1 bool: capture (true if agent has been captured, false otherwise))
+* agentBag, a bag of strings of information pertaining to each agent from GAME_STATUS messages
+* FABag, a bag of FA structs containing information from the strings in the agentBAg
+* codedropBag, a bag of strings of information pertaining to each codedrop from the GAME_STATUS messags
+* CDBag, a bag of codedrop structs containing information from the strings in the codedropBag
+* recordStruct (used for printing GAME_OVER statistics) (5 characters: teamName, numPlayers, numCaptures, numCaptured, and numNeutralized)
+* recordBag, a bag of strings of records for each team from GAME_OVER message
+* recBag, a bag of structs of record information for each team for printing end-game statistics
+* pebbleList, a list containing pebble ID's as keys and team names as data
+
+
+
 ##Extensions
 Extensions:
 3 points: Compute the distance between two lat/long points with the proper equations, allowing the game to be played over much larger distances than our little campus.
+5 points: Guide Agent outputs an ascii-art game summary, that is, filling the terminal window with regular (ASCII) characters that somehow represent the game status.
