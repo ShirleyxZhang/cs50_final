@@ -122,6 +122,8 @@ int main(const int argc, char *argv[])
 	if ((logp = fopen("../log/gameserver.log", "w")) == NULL) {
     	fprintf(stderr,"could not open log file");
     	exit(4);
+  	} else {
+  		printf(logp,"Logfile for game of Mission Incomputable");
   	}
   	fclose(logp);
 	//validate arguments
