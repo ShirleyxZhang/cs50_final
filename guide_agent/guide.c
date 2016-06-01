@@ -809,10 +809,11 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	  }
 	}
 	else if (strcmp(OPCODE, "GS_RESPONSE") == 0) {
-	  if (gameID == NULL) {
+	  
+	  if (*gameID == NULL) {
 	    // Ignore this message because the guide agent has not yet joined
 	    // the game, but log what happened.
-	    if (logSwitch == 1) 
+	    if (logSwitch == 1)
 	      printTime(fp);
 	    fprintf(fp, "Guide agent received a GS_RESPONSE message before ");
 	    fprintf(fp, "joining the game and ignored it.\n");
@@ -836,7 +837,7 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	    fprintf(fp, "Guide agent received an ivalid message from the ");
 	    fprintf(fp, "game server and ignored it.\n");
 	  }
-
+ 
 	  /*** Log the different MI_ERROR codes ***/
 	  
 	  if (strcmp(respCode, "MI_ERROR_INVALID_OPCODE") == 0) {
@@ -844,7 +845,7 @@ handleSocket(int comm_sock, struct sockaddr_in *gsp, list_t *list,
 	      printTime(fp);
 	      fprintf(fp, "%s\n", buf);
 	    }
-	    fprintf(fp, "MI_ERROR_INVALID_OPCODE: ");	  
+	    fprintf(fp, "MI_ERROR_INVALID_OPCODE: ");
 	    fprintf(fp, "Guide agent sent an invalid OPCODE ");
 	    fprintf(fp, "to the game server.\n");
 	  }
@@ -1589,6 +1590,9 @@ void freeBag(bag_t *bag)
 
 
 
+/********************* startASCII() **********************/
+/* Starts the use of the ncurses libray and prints out messages for the user
+ * to see onto the interface */
 void
 startASCII(void)
 {
@@ -1599,18 +1603,12 @@ startASCII(void)
   int row, col;
   getmaxyx(stdscr,row,col);
   
-  /* print some nifty messages just in case they're waiting for the game
-   * server for a long time */
-  char *mesg = "Welcome to the game!";
-  char *mesg2 = "Waiting on input from the game server.";
-  char *mesg3 = "Please press enter to start.";
-  char *instruct1 = "Then enter a hint to send to a field agent";
-  char *instruct2 = "Enter 'quit' to quit at any time.";
-  mvprintw(row/2 - 2, (col-strlen(mesg))/2, "%s", mesg);
-  mvprintw(row/2 - 1, (col-strlen(mesg2))/2, "%s", mesg2);
-  mvprintw(row/2, (col-strlen(mesg3))/2, "%s", mesg3);
-  mvprintw(row/2 + 1, (col-strlen(instruct1))/2, "%s", instruct1);
-  mvprintw(row/2 + 2, (col-strlen(instruct2))/2, "%s", instruct2);
+  /* print some nifty messages just in case the user was unable to join 
+   * the game */
+  char *mesg = "Unable to join a game.";
+  char *mesg2 = "Please enter 'quit' and try again.";
+  mvprintw(row/2 - 1, (col-strlen(mesg))/2, "%s", mesg);
+  mvprintw(row/2, (col-strlen(mesg2))/2, "%s", mesg2);
   refresh();
 }
 
