@@ -78,56 +78,80 @@ When pebble neutralizes the same code again it fails
 
 
 **Sample run**  
-Below is the the terminal output from an example run testing the different communications between pebble game server and guideagent. We also printed out the sent messages from the game server, and the incoming mssage
+Extra credit for calculating more accurate distance. the distance prints each time its calculated
 
-297From port 51033: 'FA_LOCATION|0|0123456789abcdef0123456789abcdef|2345|0|43.7226|-72.1342|1'  
-success send: GAME_STATUS|286|no active guide|24|1|1
+The great circle distance, as expected.
 
-299From port 51033: 'FA_LOCATION|286|0123456789abcdef0123456789abcdef|2345|0|43.7226|-72.1342|1'
-success send: GAME_STATUS|286|no active guide|24|1|1
-
-313From port 51033: 'FA_CAPTURE|286|0123456789abcdef0123456789abcdef|2345|0|0'
-the distance squared: 0.998902success send: GS_CAPTURE_ID|286|3239
-
-315From port 51033: 'FA_LOCATION|286|0123456789abcdef0123456789abcdef|2345|0|43.7226|-72.1342|1'
-success send: GAME_STATUS|286|no active guide|24|1|1
-
-328From port 51033: 'FA_LOCATION|286|0123456789abcdef0123456789abcdef|2345|0|43.7226|-72.1342|1'
-success send: GAME_STATUS|286|no active guide|24|1|1  
+		313From port 51033: 'FA_CAPTURE|286|0123456789abcdef0123456789abcdef|2345|0|0'
+		the distance squared: 2.33success send: GS_CAPTURE_ID|286|3239
 
 
-343From port 51033: 'FA_CAPTURE|286|0123456789abcdef0123456789abcdef|2345|0|0012'
-344From port 51033: 'FA_CAPTURE|286|0123456789abcdef0123456789abcdef|2345|0|3239'
-success send: GS_RESPONSE|286|MI_CAPTURE_SUCCESS|successfully captured!  
-
-success send: GS_RESPONSE|286|MI_CAPTURED|You have been captured!
-
-
-** Sending game over message **
-
-The gameID is: C21D37E5
+####Example of testing the different actions, and accompanying raw logfile
+The gameID is: 5F
 Ready at port 23383
-From port 44264: 'FA_LOCATION|0|fa3ID|TEAM2|FA3|43.7033615112305|-72.2885437011719|1'
-success send: GAME_STATUS|C21D37E5|no active guide|25|1|0
 
-From port 44264: 'FA_LOCATION|0|fa2ID|lapis|FA2|43.7033825112305|-72.2885437011719|1'
-success send: GAME_STATUS|C21D37E5|no active guide|25|1|1
+sending update to field agent
+		
+		From port 35700: 'FA_LOCATION|5F|0123456789abcdef0123456789abcdef|0|0|43.7226|-72.1342|1'
+		success send: GAME_STATUS|5F|no active guide|25|1|1
 
-From port 44264: 'FA_LOCATION|0|fa4ID|lapis|FA4|43.7033643050646|-72.2885407136371|1'
-success send: GAME_STATUS|C21D37E5|no active guide|25|2|1
+sending capture id to maybe-capture player
 
-success send: GAME_OVER|C21D37E5|25|:TEAM2,1,0,0,0:lapis,2,0,0,0
+		From port 35700: 'FA_CAPTURE|5F|0123456789abcdef0123456789abcdef|0|0|0'
+		success send: GS_ CAPTURE_ ID|5F|DDF6
 
-success send: GAME_OVER|C21D37E5|25|:TEAM2,1,0,0,0:lapis,2,0,0,0
+sending captured message to captured player, and success message to capturing player
 
-success send: GAME_OVER|C21D37E5|25|:TEAM2,1,0,0,0:lapis,2,0,0,0
+		From port 35700: 'FA_CAPTURE|5F|0123456789abcdef0123456789abcdef|0|0|DDF6'
+		success send: GS_RESPONSE|5F|MI_CAPTURE_SUCCESS|successfully captured!
+		FA_CAPTURE|5F|0123456789abcdef0123456789abcdef|0|0|ECA6
+
+		success send: GS_RESPONSE|5F|MI_CAPTURED|You have been captured!
+
+when neutralization fails, no response
+
+	From port 35700: 'FA_NEUTRALIZE|5F|0123456789abcdef0123456789abcdef|0|0|43.7226|-72.1342|A9AB'
+
+When successful, message is sent
+
+	From port 35700: 'FA_NEUTRALIZE|5f|0123456789abcdef0123456789abcdef|0|0|43.7226|-72.1342|AAAA'
+	success send: GS_RESPONSE|5F|MI_NEUTRALIZED|successfully neutralized a codedrop!
 
 
+###The logfile
+Below a snippits from the logfile documenting correct messages were sent. 
 
+		Tue May 31 20:33:23 2016 
+		received message: FA_CAPTURE|5F|0123456789abcdef0123456789abcdef|0|0|0 from
+		Tue May 31 20:33:23 2016
+		 **successfully sent datagram: GS_CAPTURE_ID|5F|DDF6 , to fa2ID **
 
+documenting events and sending to the correct agents the appropriate capture messages
 
+		Tue May 31 20:33:47 2016
+		player fa2ID was captured by player 0123456789abcdef0123456789abcdef
+		Tue May 31 20:33:47 2016
+		successfully sent datagram: GS_RESPONSE|5F|MI_CAPTURE_SUCCESS|successfully captured! , to 0123456789abcdef0123456789abcdef
 
+		Tue May 31 20:33:47 2016
+		successfully sent datagram: GS_RESPONSE|5F|MI_CAPTURED|You have been captured! , to fa2ID
 
+Documenting neutralizations
+
+		Tue May 31 20:35:26 2016
+		received message: FA_NEUTRALIZE|5F|0123456789abcdef0123456789abcdef|0|0|43.7226|-72.1342|AAAA from
+		Tue May 31 20:35:26 2016
+		0 successfully neutralized codedrop AAAA
+		Tue May 31 20:35:26 2016
+		successfully sent datagram: GS_RESPONSE|5F|MI_NEUTRALIZED|successfully neutralized a codedrop! , to 0123456789abcdef0123456789abcdef
+
+###Sending game over message
+
+	success send: GAME_OVER|C21D37E5|25|:TEAM2,1,0,0,0:lapis,2,0,0,0
+
+	success send: GAME_OVER|C21D37E5|25|:TEAM2,1,0,0,0:lapis,2,0,0,0
+
+	success send: GAME_OVER|C21D37E5|25|:TEAM2,1,0,0,0:lapis,2,0,0,0
 
 ########################## Testing Guide Agent ##############################
 To test the Guide Agent, we used the assistance of the chatserver program provided in the CS50 lectures. We ran chatserver from a local directory on one of our Macs, and we ran Guide Agent on one of the CS50 servers and connected it to the chatserver. From the chatserver, we were able to print out messages sent by the Guide Agent, and we received "fake" messages formatted like messages from the Game Server.

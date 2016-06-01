@@ -861,6 +861,7 @@ static bool haversine(double lat1, double lat2, double lon1, double lon2) {
     double b = 2 * atan2(sqrt(a), sqrt(1 - a));
     //the great-circle distance between two locations
     double result = EARTH_RADIUS * b;
+    printf("the great-circle distance is: %f",result);
     return (result < 10.0);
 }
 
@@ -875,6 +876,8 @@ static bool capture_player(FA_t* found_player)
 		if (curr - found_player->capture_start < 60) {
 			found_player->status = 2;
 			return true;
+		} else {
+			found_player->status = 0;
 		}
 	}
 	return false;

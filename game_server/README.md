@@ -24,7 +24,7 @@ The game server is the communication middleman between the pebble and the guide 
 
 **limitations:** 
 - multiple errors in one message will only notify one error
-- The game eventually ends only after the timer expires AND another datagram comes in, else it seems to be running overtime
+- In regards to the timer, the game eventually ends only after the timer expires AND another datagram comes in, else it seems to be running overtime
 - The game status to guideid has slight formatting differences to protocol i.e. there will be an extra colon. But this codes not affect the way it communicates with guide agent.
 - There can be incorrect information, but there cannot be blanks in the datagrams or short datagrams ie. cannot be 'FA_LOCATION|0' 'GA_STATUS|34|||'
 - cannot validate whether port number is a valid one used by teams in the class, simply tries to bind

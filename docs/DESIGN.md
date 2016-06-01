@@ -79,7 +79,8 @@ Output:
 
 ###Functional Decomposition into Modules
 ####Field Agent
-We anticipate the following modules or functions:
+We anticipate the following modules or functions:  
+
 1. main/init, necessary for setting up windows and initial declarations
 2. deinit, destroys layers no longer in use
 3. RequestInfo, send request to GS for updates
@@ -92,7 +93,8 @@ We anticipate the following modules or functions:
 
 
 ####Guide Agent
-We anticipate the following modules or functions:
+We anticipate the following modules or functions:  
+
 1. createSocket - parses the GShost and GSport arguments and sets up a socket
 2. getGuideID - prompts the user to enter an 8-digit ID and assigns them this ID for the rest of the game
 3. sendFirstMessage - sends the first message from the Guide Agent to the Game Server, announcing the Guide Agent's presence and requesting a status update
@@ -157,6 +159,7 @@ We anticipate the following modules or functions:
 ![Alt text](/Users/imac/Desktop/diagram.jpg)
 
 Game Server:
+
 * Game Server- Server is in working order and is connected to without any failure.
 * Game Server reads codedrop files and creates a struct for each codedrop. Puts them in a list with keyword as codedrop hex code and data as the struct. Have a count of the total codedrops
 * GA joins the game by sending a message to the Game Server. Game Server creates a GA struct and a team struct. 
@@ -176,6 +179,8 @@ Game Server:
 
 
 Guide Agent:
+
+
 * Game Server is running and connected to the port
 * The user runs the Guide Agent with valid command-line arguments, and the program prompts the user for a guide ID.
 * The Guide Agent launches into an ASCII interface
@@ -198,6 +203,7 @@ Guide Agent:
 
 ###Major data structures
 Game Server:
+
 * list of codedrops 
 * list of teams 
 * lists of FAs 
@@ -210,6 +216,7 @@ Game Server:
 
 
 Guide Agent:
+
 * codedrop struct (4 strings: hexcode, latitude, longitude, teamname)
 * FA struct (6 strings: teamname, pebbleid, name, latitude, longitude, and contact, and 1 bool: capture (true if agent has been captured, false otherwise))
 * agentBag, a bag of strings of information pertaining to each agent from GAME_STATUS messages
@@ -225,5 +232,11 @@ Guide Agent:
 
 ##Extensions
 Extensions:
+
 3 points: Compute the distance between two lat/long points with the proper equations, allowing the game to be played over much larger distances than our little campus.
+
 5 points: Guide Agent outputs an ascii-art game summary, that is, filling the terminal window with regular (ASCII) characters that somehow represent the game status.
+
+10 points: Enhance the Field Agent user interface; consider these Common design styles. You may find it useful to explore these examples - but remember to cite any code you borrow
+
+5 points: Use the Pebble’s accelerometer API to detect when the Field Agent is stationary or moving, requesting location updates from the companion smartphone less-frequently when stationary. Using GPS to determine your location consumes quite a bit of energy so the purpose of this extension is to save energy. Regardless of your location changing (or not), the Pebble should still report its location (FA_LOCATION) as described above so that the Game Server/Guide Agent can be assured that the Field Agent is still actively participating in the game.
