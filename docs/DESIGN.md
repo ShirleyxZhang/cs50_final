@@ -112,12 +112,14 @@ We anticipate the following modules or functions:
 15. freeBag - extracts all remaining items in a bag and frees their data
 16. startASCII - calls initscr() and prints a suitable startup message to the ASCII interface
 
-###Game Adgent
-1. Parsing and Sending ARguments
+###Game Agent
+1. Parsing and Sending Arguments of the right format
 2. Sending Aerts based on hex code
 3. Interpret server data and accutately send codes
 4. Use window layers to effextively present information
-5. Send updates to the Game Server
+5. Use menu layer and the messaging system for good communication and good UI
+6. Send updates to the Game Server
+7. Screen Transitions & Parsing of Information
 
 
 ####Game Server

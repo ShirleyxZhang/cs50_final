@@ -12,6 +12,7 @@ The game server is the communication middleman between the pebble and the guide 
 - switches must come before other arguments  
 - the codedrop file follows the strict format in the example
 - Any new agents to the game must initially request a status update as this give them the needed gameid
+-The codes sent from the game server to the pebble should always be in the right format and readable
 - There can be incorrect information, but there cannot be blanks in the datagrams or short datagrams ie. cannot be 'FA_LOCATION|0' 'GA_STATUS|34|||'
 
 **Exit status**  

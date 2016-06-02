@@ -469,3 +469,64 @@ Another example: when the Game Server sent the GS_RESPONSE message:
 	Wed Jun  1 14:37:09 2016
 	MI_ERROR_INVALID_GAME_ID: Guide agent sent an invalid game ID to the game server.
 
+***Communications Are Open & Set***
+
+App install succeeded.
+[20:44:50] essage_outbox.c:51> app_message_open() called with app_message_outbox_size_maximum().
+[20:44:50] essage_outbox.c:54> This consumes 8200 bytes of heap memory, potentially more in the future!
+[20:44:50] message_inbox.c:13> app_message_open() called with app_message_inbox_size_maximum().
+[20:44:50] message_inbox.c:16> This consumes 8200 bytes of heap memory, potentially more in the future!
+[20:44:50] javascript> PebbleKit JS Environment ready!
+[20:44:50] field_agent.c:155> MESSAGE RECEIVED
+[20:44:50] field_agent.c:162> Got AppKeyJSReady: 0123456789abcdef0123456789abcdef
+[20:44:50] javascript> BT-RX: AppMessage from Pebble received: {"3":"1","AppKeyLocation":"1"} 
+[20:44:50] javascript> BT-TX: sendAppMessage success: '{AppKeyJSReady : 0123456789abcdef0123456789abcdef}'
+[20:44:50] javascript> WEBSOCKET: connected to ws://flume.cs.dartmouth.edu:36023
+[20:44:50] field_agent.c:155> MESSAGE RECEIVED
+[20:44:50] javascript> BT-TX: sendAppMessage success: '{AppKeyLocation : 43.7226|-72.1342}'
+[20:45:07] javascript> BT-RX: AppMessage from Pebble received: {"3":"1","AppKeyLocation":"1"} 
+[20:45:07] field_agent.c:155> MESSAGE RECEIVED
+[20:45:07] javascript> BT-TX: sendAppMessage success: '{AppKeyLocation : 43.7226|-72.1342}'
+[20:45:16] field_agent.c:246> FA_LOCATION|0|0123456789abcdef0123456789abcdef|5678|0|43.7226|-72.1342|1
+[20:45:16] javascript> WEBSOCKET-TX: FA_LOCATION|0|0123456789abcdef0123456789abcdef|5678|0|43.7226|-72.1342|1
+[20:45:16] javascript> BT-RX: AppMessage from Pebble received: {"1":"FA_LOCATION|0|0123456789abcdef0123456789abcdef|5678|0|43.7226|-72.1342|1","AppKeySendMsg":"FA_LOCATION|0|0123456789abcdef0123456789abcdef|5678|0|43.7226|-72.1342|1"} 
+
+***Field Agent Neutralize*** (LINE 426)
+
+* Shows that I successfully sent an OP Code to the server to neutralize a code
+
+[20:49:35] field_agent.c:153> MESSAGE RECEIVED
+[20:49:35] javascript> BT-TX: sendAppMessage success: '{AppKeyLocation : 43.7226|-72.1342}'
+[20:49:52] field_agent.c:427> FA_NEUTRALIZE|0|0123456789abcdef0123456789abcdef|5FE|2|43.7226|-72.1342|0122
+[20:49:52] javascript> WEBSOCKET-TX: FA_NEUTRALIZE|0|0123456789abcdef0123456789abcdef|5FE|2|43.7226|-72.1342|0122
+
+* Shows that the game server sucessfully received my message to neutralize
+
+From port 60000: 'FA_NEUTRALIZE|0|0123456789abcdef0123456789abcdef|5FE|2|43.7226|-72.1342|0122'
+
+
+***Field Agent Capture*** (LINE 462)
+
+* Successfully Sending a Capture code to the game server
+
+[20:58:51] field_agent.c:466> FA_CAPTURE|0|0123456789abcdef0123456789abcdef|01234|2345|0123
+
+* On the server side, the server knows that I have successfully initialized the capture ability.
+
+From port 55508: 'FA_CAPTURE|0|0123456789abcdef0123456789abcdef|01234|2345|0'
+
+* The server sees my capture code and then goes on to do its taks of checking it and sending back a message
+
+From port 55508: 'FA_CAPTURE|0|0123456789abcdef0123456789abcdef|01234|2345|0123'
+
+***Communications***
+
+* For testing my group and I used dummy agents at times and pre-set location configurations in order to test if a code was actually being neutralized from a location that meets the requirements
+
+* We tested by constantly looking at server output as I sent messages and output from the fame server, 
+
+
+
+
+
+
