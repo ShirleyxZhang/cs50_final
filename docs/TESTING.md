@@ -1,4 +1,8 @@
 ## TESTING.md ##
+
+Here you can find a link to a folder with all of the screens in the PEBBLE Applcation. For the Field Agent Extension we incoorperated a easy to use and well formatted UI for the every day person to play.(This is shown through allof the window handlers,layers, and pictures)
+
+
 To test the game server we used the chatserver client provided in lectures. From the chat we sent to the game server appropriate messages to create a game using "fake" field and guide agents.
 We created "fake" field agents and guide agents by sending the following messages to the game server through the chat:
 
@@ -523,10 +527,22 @@ From port 55508: 'FA_CAPTURE|0|0123456789abcdef0123456789abcdef|01234|2345|0123'
 
 * For testing my group and I used dummy agents at times and pre-set location configurations in order to test if a code was actually being neutralized from a location that meets the requirements
 
-* We tested by constantly looking at server output as I sent messages and output from the fame server, 
+* This was the same test we conducted when we were sending hints from the gameagent to the server and then to me and as well as the capturing of players
 
+* Location is updated every 6 seconds (LINE 236)
 
+  if (tick_time->tm_sec == 6){
+    sendMessage(AppKeyLocation,"1");
+  }
 
+* Location is updated every 15 seconds
 
+   if((tick_time->tm_sec % 15 == 0) &&(team_registered)){
+    memset(message, 0, 300);
+    snprintf(message, 300, "FA_LOCATION|%s|%s|%s|%s|%s|%s", game_id, pebble_id, team_name, player_name, location, status_req);
+    LOG(message);
+    strcpy(status_req, "1");
+    sendMessage(AppKeySendMsg, message);
+  }
 
-
+* We tested by constantly looking at server output as I sent messages and output from the game server and looked to see if there were screen updates and coorelations which there were. 

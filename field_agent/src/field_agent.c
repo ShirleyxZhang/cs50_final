@@ -169,6 +169,7 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
       //Parsing of the message sent by the game server
       LOG(hold_message);
       char token[500];
+      char message_check[500];
       strcpy(token ,pebble_strtok(hold_message, delim));
       //If the token/key before the first pipe is valid
       if(token!=NULL){
@@ -202,9 +203,13 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
           //GS_RESPONSE|gameId|respCode|message
           if(strcmp(token,game_status_gs_response_key_check)==0){
             strcpy(game_id,pebble_strtok(NULL, delim));
-            pebble_strtok(NULL, delim);
+            strcpy(message_check, pebble_strtok(NULL, delim));
             strcpy(resp_Code_message, pebble_strtok(NULL, delim));
-            LOG(resp_Code_message);
+             if ((strcmp(message_check, "MI_CAPTURED")==0)||(strcmp(message_check, "MI_CAPTURE_SUCCESS")==0)||(strcmp(message_check, "MI_NEUTRALIZED"))){
+               window_stack_push(alert_window, true);
+               app_timer_register(3000, app_callback, NULL);
+              }
+
           }
           //GA_HINT|gameId|guideId|teamName|playerName|pebbleId|message
           if(strcmp(token,game_status_ga_hint_key_check)==0){
@@ -778,7 +783,7 @@ void window_unload_hints (Window *window){
 void window_load_alert(Window *window){
   // Create a text layer and set the text
   alert_text_input = text_layer_create(GRect(0, 40, 144, 90));
-  text_layer_set_text(alert_text_input, hint_message);
+  text_layer_set_text(alert_text_input, resp_Code_message);
   // Set the font and text alignment
   text_layer_set_font(alert_text_input, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(alert_text_input, GTextAlignmentCenter);

@@ -21,6 +21,8 @@ To run the program, first run the top level make file
 
 * A player should not leave the game or use the back button when on the first three screens. Player should only ever choose user name or team name once. Using the same team name and player name is necessary for functionality. 
 
+* After the game over screen the user must exit out of the game
+
 * If being captured, do not back out of the popout that shows up; The popup will be maintained for 60 seconds.
 
 * The codes sent from the game server to the pebble should always be in the right format and readable
@@ -30,6 +32,7 @@ To run the program, first run the top level make file
 * We wanted all team names and player names to be chosen by hand and to be of hashcode symbols
 
 * Do not click the request update button or any of the input symbol buttons rapidly
+
 
 
 ***Limitations***

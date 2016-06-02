@@ -87,88 +87,71 @@ Shirley Zhang, Deven Orie, Drew Waterman
 
 ***** Field Agent *****
 
-1) The validity/active state of the field agent is checked 
+1) If the game server and proxy is not active, updates will not run corretly
 
-2) Checks the connunication between the Game Server and Field Agent 
-as updates are continuously sent every 15 seconds. 
+2) As soon as the application is opened the user will be prompted to enter his/her user-name & team-name. These names are customizeable to the user and are not a pre-set list.
+
+3) After there input options, the timer_callback is called in the code and the location is constantly updated and this message is sent to the server every 15 seconds. 
   
-3) Setup the SDK & Set WatchFaces
+4) The user will then be able to Neutralize a Code, Capture a Player, See the last hint sent to them, or request an update. 
 
-4) Set up Text Layers, Windows, & Screen Layers {Order of the stack currently
-   working on}
+* When the user neutralizes a code it is sent to the server in a construcutred OP code that follows a strict standard
 
---These data structures are not incorperated by the field agent, but rather 
-how the data is stored and checked. 
+* The OP code is stringed together and if the location and code match the data on the server, then a successful screen should pop up for a short duration.
 
-  Screen 1: Allows the user to input a player name of their choosing 
-      Key: Pebble ID
-      Data: FA Struct
-      
-5) Set up a secondary window 
+5) Once the user clicks the capture button, a unique OP Capture Code is sent to the game server. This initializes the game server to prepare for a capture code.
+  *When a capture code is then inputed and sent, if successful, a message will be displayed.
 
-  Screen 2: Allows the user to input a team name of their choosing 
-        (Team List)
-        Key: Team Name
-        DATA: Team Struct
+6) When a user clicks on the hints menu option, they would see the last hint that was sent to the.
 
-6) The third window gives the user the option to neutralize, capture, request update or look at hints.
+7) Request an update, sends a FA_LOCATION message to the server and allows for updates to take place in terms of the variables and their values.
+
+
 
   NEUTRALIZE- Here the user is a able to enter a 4 digit hex code and check to see if the code trying to be neutralized is in the correct proximity and is being sent through OP codes
 
   CAPTURE- Here the user is able to enter a players id code if they are able to effectively send the right op code to the server, and once handled, this would allow a field agent to capture another person.
 
-  REQUEST UPDATE- Updates common variables and allows users to get updates on a shorter time stamp reather than every 15 seconds.
+  REQUEST UPDATE- Updates common variables and allows users to get updates on a shorter time stamp rather than every 15 seconds.
 
   HINTS -  Just an animate window with the most up to date data from the server
 
-                
-7) Option 1: After the code is typed into a text box, the op code is sent to the game server and if validated, the message sent back will be parsed and will let me know the success value of my actions. 
-
-
-
+8) If being captured, the field agent will know that it is being captured due to the parsed code sent from the game server to the pebble.
+  * A screen will display for 60 seconds alerting the player that he/she is being captured
+  * A code will also be on the screen where the player who was in the proximity & click captured is then able to go in, type in the code, and successfully neutralize this player.
+              
 -If not found return error message else return success
 message, this occurs in my message handlers
 
 -If already in inactive state return message 
 
-Option 2:
-If in the proximity of another player; Press Capture 
+-Sends a signal to the Game Server to relay the ID of the player being captured;
 
--Possibly Based on the location Data and the data from the (Team List), this
- would only work if this check is met
+* Information parsed from the OP Code sent from the game server 
 
--Sends a signal to the Game Server to relay the ID of the player being captured; THis is no longer overwatched by a 60 second timer, but on the pebble a new window pops up indicating this informationa and new game state.
+* Incorporation of a 60 second time limitation
 
--Once captured Player is made Inactive(PlayerList)
+* Check on if a player has already been captured
 
+* Check on if all players of one team have been captured
 
-    
--Checks on the proximity
-
--Checks on if the ID number entered is accurate
-
--Incorporation of a 60 second time limitation
-
--Check on if a player has already been captured
-
--Check on if all players of one team have been captured
-
-7) Deinit all uses of layers, windows, and text layers
 
 8) Buttons & Layered Fields
 
-  May want to incorporate: 
-    -basic_update_proc
+    -menu layers, windows, text layers
     -config_provider
-    -haptic feedback: backlit display & vibrations 
+    -handlers
+    -callbacks
+    -mesaging system to use API & Allow Communications
+
 9) Check the connection between the Game Server and Game Agent 
 
-  *Process/Display the Data Grams 
-  *Incorporate this data into the application
+  *Process/Display the  selected Data
+    -hints, capture message, neutraliation message 
 
-10) Full check on exit status and shared data 
+10) Checks on the init and deint
 
-
+11) Check on the information being parsed and the information that is sent 
 
 ***** Guide Agent *****
 
